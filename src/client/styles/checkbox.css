@@ -1,0 +1,18 @@
+/* Every checkbox: the same round mark as checking a meal off (.meal-check-box). Still a real
+   checkbox, so its label, keyboard and VoiceOver behavior are the browser's own. The tick is drawn
+   here because the CSP doesn't allow data: images. */
+
+input[type='checkbox'] {
+  appearance: none; -webkit-appearance: none;
+  position: relative; flex: none; display: inline-grid; place-items: center;
+  width: 24px; height: 24px; margin: 0; border-radius: 50%;
+  border: 1.5px solid var(--ink-soft); background: transparent; cursor: inherit;
+}
+input[type='checkbox']::before { content: ''; position: absolute; inset: -10px; } /* a thumb-sized target outside a label */
+input[type='checkbox']:checked { background: var(--accent); border-color: var(--accent); }
+input[type='checkbox']:checked::after {
+  content: ''; width: 6px; height: 11px; margin-top: -2px;
+  border: solid var(--accent-ink); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+input[type='checkbox']:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type='checkbox']:disabled { opacity: 0.45; }

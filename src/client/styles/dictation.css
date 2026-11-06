@@ -1,0 +1,42 @@
+/* The listening bar: a dark pill above the tabs that stays put while you move around. */
+
+.dictation-bar {
+  position: fixed; z-index: 30; display: flex; align-items: center; gap: 12px;
+  left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 24px));
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 10px);
+  min-height: 58px; padding: 8px 8px 8px 18px; border-radius: 999px;
+  background: var(--ink); color: var(--paper); box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
+  font-family: var(--sans);
+}
+.dictation-bar .icon-button { color: inherit; opacity: 0.75; }
+.dictation-bar .button { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.dictation-title { display: block; font-size: 0.88rem; font-weight: 600; }
+.dictation-label { display: block; font-size: 0.75rem; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dictation-bar .error-text { font-size: 0.85rem; line-height: 1.35; }
+.listening-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--missing); flex: none; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
+
+body.dictating .page { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 100px); }
+
+/* Cook mode's actions stay tappable: the bar sits above them, not over "Done making this". */
+body:has(.sticky-actions) .dictation-bar { transform: translate(-50%, -76px); }
+body.dictating .page:has(.sticky-actions) { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 190px); }
+
+/* The recipe editor is a sheet with its own mic. The bar comes above the sheet, as sheets otherwise
+   cover it, and sits just over the footer so Save stays tappable. The form's end scrolls clear of it. */
+body:has(.recipe-edit) .dictation-bar { z-index: 45; transform: translateX(-50%); bottom: calc(var(--sheet-foot-height, 77px) + env(safe-area-inset-bottom) + 8px); }
+body.dictating:has(.recipe-edit) .sheet-body { padding-bottom: 96px; }
+body:has(.recipe-edit):has(.dictation-bar.failed) .sheet-body { padding-bottom: 150px; }
+body:has(.recipe-edit):has(.dictation-bar.words) .sheet-body { padding-bottom: 240px; }
+
+/* The last minute of a take. */
+.dictation-title.ending { color: color-mix(in srgb, var(--missing) 70%, var(--paper)); }
+.dictation-bar .button.quiet-on-dark { background: none; color: var(--paper); border-color: color-mix(in srgb, var(--paper) 40%, transparent); }
+.dictation-bar .icon-button.confirming { width: auto; padding: 0 10px; border-radius: 999px; opacity: 1; background: var(--missing); color: var(--paper); }
+.dictation-bar.failed, .dictation-bar.paused { border-radius: 22px; }
+
+/* Words held for a field whose screen is gone: readable, selectable, and never covering the page's end. */
+.dictation-bar.words { border-radius: 22px; align-items: flex-start; padding: 12px 8px 12px 18px; }
+.dictation-bar.words .dictation-label { white-space: normal; }
+.dictation-words { margin: 4px 0; max-height: 6.5em; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.88rem; line-height: 1.3; user-select: text; -webkit-user-select: text; }
+body:has(.dictation-bar.words) .page { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 240px); }

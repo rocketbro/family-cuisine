@@ -1,0 +1,51 @@
+/* Form controls, sized from the tokens in theme.css so anything side by side lines up. */
+
+.field {
+  display: block; width: 100%; min-width: 0; max-width: 100%; min-height: var(--control-height); padding: 0 var(--control-pad);
+  border-radius: var(--control-radius); border: 1px solid var(--rule);
+  background: var(--paper); font-family: var(--sans);
+  font-size: max(16px, 0.95rem); /* iPhone zooms the page into anything smaller */
+}
+.field:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.field:disabled { opacity: 0.55; }
+textarea.field { border-radius: var(--radius-small); padding: 12px var(--control-pad); min-height: 90px; }
+
+/* iPhone draws selects and dates its own way, shorter than the rest and wider than their column. */
+select.field, input[type='date'].field, input[type='time'].field { height: var(--control-height); appearance: none; -webkit-appearance: none; }
+input[type='date'].field::-webkit-date-and-time-value, input[type='time'].field::-webkit-date-and-time-value { text-align: left; margin: 0; }
+/* A time has no need of the whole line. */
+input[type='time'].field { width: 11rem; }
+/* Two gradients make the arrow: the CSP allows no data: images. */
+select.field {
+  padding-right: calc(var(--control-pad) + 16px);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+  background-position: right calc(var(--control-pad) + 5px) center, right var(--control-pad) center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* A label, its control, and a line of help if it needs one. */
+.form-field { display: block; }
+.form-field + .form-field { margin-top: var(--space-xl); }
+.form-field-label { display: block; margin-bottom: var(--space-s); }
+.form-field-help { margin: var(--space-s) 0 0; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.35; }
+.form-field.inline .form-field-control { display: flex; align-items: center; justify-content: space-between; gap: var(--space-m); }
+.form-field.inline .form-field-label { margin: 0; }
+
+/* An amount and its unit, or a field and its button. */
+.form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-s); }
+.form-with-button { display: flex; gap: var(--space-s); }
+.form-with-button .button { flex: none; }
+
+.stepper.control button { display: inline-grid; place-items: center; width: var(--control-height); height: var(--control-height); }
+.stepper.control button:disabled { opacity: 0.4; }
+.stepper.control span { min-width: 32px; font-size: 1rem; }
+
+/* What just happened to a save. Sits where the Save button was. */
+.save-note { display: flex; align-items: center; gap: 6px; min-height: 1.5rem; margin: var(--space-s) 0 0; font-family: var(--sans); font-size: 0.85rem; color: var(--ink-soft); }
+.save-note:empty { min-height: 0; margin: 0; }
+.save-note.saved { color: var(--ready); }
+.save-note.failed { color: var(--missing); }
+.save-bar { margin-top: var(--space-xl); }
+.save-bar:has(> .save-note:empty:only-child) { margin-top: 0; }
+.save-bar .save-note:not(:empty) { margin-top: 0; justify-content: center; min-height: var(--control-height); }

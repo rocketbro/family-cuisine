@@ -1,0 +1,83 @@
+/* Colors, type and spacing. A recipe book: white paper, olive ink, hairline rules.
+   Dark mode is a soft charcoal with just a trace of green, and the same olive accent lifted. */
+
+:root {
+  --paper: #ffffff;
+  --surface: #f7f6f1;
+  --ink: #2c2b22;
+  --ink-soft: #6b6956;
+  --ink-faint: #9b9985;
+  --rule: #e6e4da;
+  --accent: #5d6847;
+  --accent-ink: #ffffff;
+  --ready: #3d7a4b;
+  --most: #c08529;
+  --missing: #b0483a;
+  --shadow: 0 1px 2px rgb(44 43 34 / 6%), 0 8px 24px rgb(44 43 34 / 6%);
+
+  --serif: 'EB Garamond Variable', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Inter Variable', -apple-system, system-ui, sans-serif;
+  --body: var(--serif);
+
+  --radius: 18px;
+  --radius-small: 12px;
+  --gutter: 20px;
+  --column: 600px;
+  --tabbar: 64px;
+
+  /* Text fields, selects and buttons that sit together share one height and padding. It grows with
+     the text size, and never drops below a comfortable thumb. */
+  --control-height: max(44px, 2.75rem);
+  --control-pad: 16px;
+  --control-radius: 999px;
+
+  /* The one spacing scale: inside a field, between a label and its control, between rows, between
+     groups, between sections. */
+  --space-xs: 4px;
+  --space-s: 10px;
+  --space-m: 14px;
+  --space-l: 20px;
+  --space-xl: 30px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='auto'] {
+    --paper: #1d201d;
+    --surface: #282c28;
+    --ink: #f3f1e8;
+    --ink-soft: #c4c6b8;
+    --ink-faint: #95988b;
+    --rule: #3b403b;
+    --accent: #c9d8ad;
+    --accent-ink: #1d201d;
+    --ready: #92d4a0;
+    --most: #edc374;
+    --missing: #f19683;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --paper: #1d201d;
+  --surface: #282c28;
+  --ink: #f3f1e8;
+  --ink-soft: #c4c6b8;
+  --ink-faint: #95988b;
+  --rule: #3b403b;
+  --accent: #c9d8ad;
+  --accent-ink: #1d201d;
+  --ready: #92d4a0;
+  --most: #edc374;
+  --missing: #f19683;
+  --shadow: none;
+  color-scheme: dark;
+}
+
+:root[data-font='sans'] { --body: var(--sans); }
+
+:root[data-size='s'] { font-size: 15px; }
+:root[data-size='m'] { font-size: 17px; }
+:root[data-size='l'] { font-size: 19.5px; }
+:root[data-size='xl'] { font-size: 22px; }

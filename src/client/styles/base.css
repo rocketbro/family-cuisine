@@ -1,0 +1,76 @@
+/* Reset, typography and page layout. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  overflow-x: clip; /* Native date and time fields can't be measured everywhere: never let one pan the page. */
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, h4 { font-family: var(--serif); font-weight: 500; line-height: 1.15; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: 2.3rem; }
+h2 { font-size: 1.55rem; }
+h3 { font-size: 1.2rem; }
+p { margin: 0 0 0.8em; }
+a { color: inherit; text-decoration-color: var(--ink-faint); text-underline-offset: 3px; }
+img { display: block; max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+
+.page {
+  max-width: var(--column);
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 18px) var(--gutter) calc(var(--tabbar) + env(safe-area-inset-bottom) + 32px);
+}
+
+.eyebrow {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.muted { color: var(--ink-soft); }
+.faint { color: var(--ink-faint); }
+.small { font-size: 0.85rem; }
+.italic { font-style: italic; }
+/* A label is inline by default, and inline things ignore the margin that spaces a stack. */
+label.stack { display: block; }
+.stack > * + * { margin-top: var(--gap, var(--space-m)); }
+.row { display: flex; align-items: center; gap: var(--space-s); }
+.spread { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rule { border: 0; border-top: 1px solid var(--rule); margin: 22px 0; }
+.section { margin-top: var(--space-xl); }
+.section > .eyebrow { display: block; margin-bottom: var(--space-s); }
+
+.markdown ol, .markdown ul { padding-left: 1.3em; }
+.markdown li { margin-bottom: 0.6em; }
+.markdown h2 { font-size: 1.35rem; margin: 1.6em 0 0.7em; }
+.markdown h3 { font-size: 1.1rem; margin: 1.2em 0 0.5em; }
+.markdown strong { font-weight: 600; }
+
+/* Steps read like a cookbook: big italic numerals in the margin. */
+.markdown ol { list-style: none; counter-reset: step; padding-left: 0; }
+.markdown ol > li { counter-increment: step; position: relative; padding-left: 2.2em; }
+.markdown ol > li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: -0.12em;
+  font-family: var(--serif); font-style: italic; font-size: 1.45em; color: var(--ink-faint);
+}
+
+.stack > .eyebrow { display: block; }
+
+/* A tab's heading with its one action (settings, add, talk) at the right, icon only. */
+.title-row { align-items: center; gap: 12px; }
+.title-row h1 { margin: 0; }
+.title-row .icon-button { margin-right: -8px; color: var(--ink-soft); }

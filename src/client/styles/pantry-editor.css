@@ -1,0 +1,56 @@
+/* The expanded pantry row and its See all sheet. Sizes are set here, for these controls only. */
+
+.item-editor { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 18px; }
+.item-editor .segmented button { min-height: 40px; }
+.item-editor .chip, .details .chip { min-height: 38px; padding: 0 14px; }
+
+.item-note { display: block; margin: 0; color: var(--ink-faint); font-size: 0.85rem; line-height: 1.35; }
+.item-said { margin: 0; color: var(--ready); font-size: 0.92rem; line-height: 1.35; }
+
+/* label · control · what's at the end of the line */
+.item-line { display: flex; align-items: center; gap: 10px; min-height: var(--control-height); }
+.item-label { flex: none; width: 4.4em; font-size: 0.95rem; }
+.item-line .pick { flex: 1; min-width: 0; }
+.item-line-end { flex: none; width: 3.2em; display: flex; justify-content: flex-end; }
+.item-actions { flex-wrap: wrap; gap: 8px; }
+.item-foot { align-items: flex-start; margin-top: 2px; }
+
+.field.item-amount { flex: none; width: 76px; height: var(--control-height); min-height: var(--control-height); padding: 0 14px; }
+.item-of { flex: none; color: var(--ink-soft); font-size: 0.92rem; }
+.item-stepper { height: var(--control-height); }
+.item-stepper button { width: 44px; height: calc(var(--control-height) - 2px); }
+.item-stepper input { width: 52px; height: calc(var(--control-height) - 2px); border: 0; background: none; text-align: center; font-weight: 600; font-size: 1rem; }
+.item-stepper input:focus { outline: none; }
+
+/* A select or date drawn by us, with the real one invisibly on top. */
+.pick {
+  position: relative; display: flex; align-items: center; gap: 8px; height: var(--control-height); padding: 0 14px;
+  border: 1px solid var(--rule); border-radius: 999px; font-family: var(--sans); font-size: 0.95rem; color: var(--ink); cursor: pointer;
+}
+.pick.use-by-soon { color: var(--missing); }
+.pick .lucide { color: var(--ink-faint); }
+.pick select, .pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; font-size: 1rem; }
+.pick:focus-within { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.portion-block { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--rule); }
+
+/* Something about to happen: what it does, then the button that does it. */
+.item-panel { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; padding: 14px 16px; border-radius: var(--radius-small); background: var(--surface); }
+.item-panel-title { margin: 0; font-family: var(--sans); font-size: 0.9rem; font-weight: 600; }
+.item-panel-result { margin: 0; font-size: 1.05rem; line-height: 1.3; }
+.item-panel .segmented { background: var(--paper); }
+.item-panel .field, .item-panel .pick { background: var(--paper); }
+.item-panel .pick { flex: 1; }
+.item-panel .segmented button { padding: 0 4px; }
+
+.save-mark { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+button.save-mark { padding: 0; min-height: 44px; }
+
+/* The sheet */
+.details { display: flex; flex-direction: column; gap: 26px; }
+.details-group { --gap: 10px; }
+.details-group > .item-note { margin-top: 8px; }
+.details-toggle { display: flex; align-items: flex-start; gap: 12px; padding: 4px 0; cursor: pointer; }
+.details-toggle input { margin-top: 1px; }
+.remove-item { align-self: flex-start; min-height: 44px; color: var(--missing); }
+.button.remove-item-yes { background: var(--missing); border-color: var(--missing); color: var(--paper); }

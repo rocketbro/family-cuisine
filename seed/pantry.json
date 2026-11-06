@@ -1,0 +1,4 @@
+[
+  { "name": "salt", "category": "Spices", "status": "have", "staple": true },
+  { "name": "water", "category": "Other", "status": "have", "staple": true }
+]

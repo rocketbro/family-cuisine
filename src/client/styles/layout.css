@@ -1,0 +1,65 @@
+/* The app shell: tab bar on phones, sidebar from tablet width up. */
+
+.nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--rule);
+}
+.nav nav { display: flex; max-width: var(--column); margin: 0 auto; }
+.nav nav a {
+  flex: 1; height: var(--tabbar); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-family: var(--sans); font-size: 0.62rem; letter-spacing: 0.04em; color: var(--ink-faint); text-decoration: none;
+}
+.nav nav a.active { color: var(--ink); }
+.nav-brand, .nav-extra { display: none; }
+
+.page.wide { --column: 640px; }
+
+/* Cook mode on a phone: the whole screen is the recipe. */
+@media (max-width: 899px) {
+  body.cooking .nav { display: none; }
+  body.cooking .sticky-actions, body.cooking .dictation-bar { bottom: calc(env(safe-area-inset-bottom) + 12px); }
+  body.cooking .page:has(.sticky-actions) { padding-bottom: calc(env(safe-area-inset-bottom) + 100px); }
+}
+
+@media (min-width: 900px) {
+  :root { --sidebar: 228px; }
+  .shell { display: grid; grid-template-columns: var(--sidebar) 1fr; min-height: 100vh; }
+  .nav {
+    position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column;
+    padding: 28px 14px; border-top: 0; border-right: 1px solid var(--rule); background: var(--paper);
+  }
+  .nav-brand { display: block; font-family: var(--serif); font-size: 1.7rem; padding: 0 12px 22px; }
+  .nav nav { flex-direction: column; gap: 2px; margin: 0; }
+  .nav nav a, .nav-item {
+    flex: none; height: 42px; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 0 12px; border-radius: 10px;
+    font-family: var(--sans); font-size: 0.9rem; letter-spacing: 0; color: var(--ink-soft); text-decoration: none;
+  }
+  .nav nav a.active, .nav-item.active { background: var(--surface); color: var(--ink); }
+  .nav nav a:hover, .nav-item:hover { color: var(--ink); }
+  .nav-extra { display: flex; flex-direction: column; gap: 2px; margin-top: auto; }
+  .nav-item { display: flex; align-items: center; border: 0; background: none; cursor: pointer; }
+  .nav-item:disabled { opacity: 0.45; cursor: default; }
+
+  .page { padding: 48px 48px 120px; }
+  .page.wide { --column: 1080px; }
+  .phone-only { display: none !important; }
+  .sticky-actions, .dictation-bar { bottom: 24px; left: calc(50% + var(--sidebar) / 2); }
+  .page:has(.sticky-actions) { padding-bottom: 140px; }
+
+  .meals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 24px; }
+  .meal + .meal { margin-top: 30px; padding-top: 0; border-top: 0; }
+  .meals .card { flex-direction: column; align-items: stretch; text-align: center; padding: 20px 0 48px; }
+  .meal-card .body { padding-right: 0; }
+  .meals .card .thumb { width: 140px; height: 140px; margin: 0 auto 4px; border-radius: 50%; }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .pantry-groups { columns: 2; column-gap: 48px; }
+  .pantry-groups > .section { break-inside: avoid; margin-top: 0; padding-top: 30px; }
+}
+
+/* The buttons swipes replace on a phone: out of sight, still there for VoiceOver. */
+@media (max-width: 899px) {
+  .phone-quiet { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}

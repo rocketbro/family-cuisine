@@ -1,0 +1,30 @@
+/* Settings: rows that push a screen, and the stock-up list. */
+
+.setting-row { display: flex; align-items: center; gap: var(--space-m); min-height: 64px; padding: var(--space-s) 0; width: 100%; color: inherit; text-decoration: none; background: none; border-width: 1px 0 0; border-style: solid; border-color: var(--rule); text-align: left; cursor: pointer; font: inherit; }
+.setting-row .chevron { flex: none; color: var(--ink-faint); }
+.setting-row:disabled { cursor: default; opacity: 0.6; }
+.setting-title { display: block; font-size: 1.1rem; line-height: 1.25; }
+.setting-value { display: block; margin-top: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--sans); font-size: 0.8rem; color: var(--ink-soft); }
+.setting-value.ask { color: var(--accent); font-weight: 550; }
+.setting-rows { border-bottom: 1px solid var(--rule); }
+
+.settings-intro { margin: var(--space-s) 0 0; color: var(--ink-soft); line-height: 1.35; }
+.settings-body { margin-top: var(--space-xl); }
+.settings-actions { margin-top: var(--space-l); display: flex; flex-direction: column; gap: var(--space-s); }
+.settings-actions .button { width: 100%; }
+
+/* The next trip, read before anything else on the screen. */
+.trip-day { margin: 0; font-family: var(--serif); font-size: 1.55rem; line-height: 1.2; }
+
+/* How far along a goal is. */
+.stock-meter { display: block; height: 6px; margin-top: var(--space-s); border-radius: 999px; background: var(--rule); overflow: hidden; }
+.stock-meter > span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.stock-words { display: flex; justify-content: space-between; gap: var(--space-m); margin-top: 6px; font-family: var(--sans); font-size: 0.8rem; color: var(--ink-soft); }
+.stock-words > :last-child { flex: none; color: var(--ink-faint); }
+.stock-hint { display: block; margin-top: var(--space-xs); font-family: var(--sans); font-size: 0.8rem; color: var(--most); }
+.stock-standing { padding: var(--space-m) var(--control-pad); border-radius: var(--radius-small); background: var(--surface); }
+.stock-standing .stock-meter { margin-top: 0; }
+.stock-order { flex: none; display: flex; gap: 2px; }
+.stock-grow { flex: 1; min-width: 0; display: block; }
+
+.danger-link { display: block; margin-top: var(--space-xl); color: var(--missing); padding: var(--space-s) 0; }
