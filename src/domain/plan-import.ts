@@ -1,7 +1,8 @@
-// A meal plan someone wrote out themselves, as read off a photo or from their words. Plans name
-// days far more often than dates, so which week they mean is an assumption, shown and changeable.
-import { addDays, dayOfWeek, type ISODate } from './dates.ts';
+// A meal plan someone wrote out themselves, as read off a photo or from their words, for a stretch
+// of days they chose first. Every meal ends up with a real date, or none until someone gives it one.
+import { addDays, dateRange, type ISODate } from './dates.ts';
 import type { MealSlot } from './recipe.ts';
+import { nextTrip, tripCoversThrough, type ShopSchedule } from './shop-schedule.ts';
 
 export type ImportSlot = MealSlot | 'extra';
 export type ImportConfidence = 'sure' | 'likely' | 'unsure';
@@ -15,10 +16,7 @@ export type ImportMatch =
 export type ImportedMeal = {
   /** Their words for it. */
   said: string;
-  /** A date written on the plan, or one a person chose in the review. It stays put when the week changes. */
   date: ISODate | null;
-  /** 0 = Sunday. The day it named, which lands in whichever week is assumed. */
-  weekday: number | null;
   slot: ImportSlot;
   match: ImportMatch;
   confidence: ImportConfidence;
@@ -26,33 +24,34 @@ export type ImportedMeal = {
 
 export type ImportPlacement = { date: ISODate; slot: ImportSlot; match: ImportMatch };
 
-/** The date a weekday falls on in the seven days from `start`. */
-export function dateInWeek(weekday: number, start: ISODate): ISODate {
-  return addDays(start, (weekday - dayOfWeek(start) + 7) % 7);
+/** The days someone says they're planning. Meals can land past the end of it. */
+export type ImportRange = { from: ISODate; through: ISODate };
+
+/** What the coming grocery trip shops for: the trip through the day before the one after it. */
+export function defaultImportRange(today: ISODate, schedule: ShopSchedule): ImportRange {
+  const from = nextTrip(today, schedule);
+  return { from, through: tripCoversThrough(from, schedule) };
 }
 
-/**
- * The week a plan most likely means, from today on. A date written on it decides. Otherwise it starts
- * on the first day it names, the next time that comes around, because that's how a plan is written:
- * a Monday-to-Friday one made on a Friday isn't starting today. With neither, it starts today.
- */
-export function assumedWeekStart(meals: readonly ImportedMeal[], today: ISODate): ISODate {
-  const written = meals.flatMap(m => (m.date && m.date >= today ? [m.date] : [])).sort()[0];
-  if (written) return written;
-  const named = meals.find(m => m.weekday !== null);
-  return named ? dateInWeek(named.weekday!, today) : today;
+/** A from date moved past the end keeps the stretch as long as it was. */
+export function withFrom(range: ImportRange, from: ISODate): ImportRange {
+  if (from <= range.through) return { from, through: range.through };
+  return { from, through: addDays(from, dateRange(range.from, range.through).length - 1) };
 }
 
-export function importedDate(meal: Pick<ImportedMeal, 'date' | 'weekday'>, start: ISODate): ISODate | null {
-  return meal.date ?? (meal.weekday === null ? null : dateInWeek(meal.weekday, start));
+/** A through date before the start ends it on the start. */
+export function withThrough(range: ImportRange, through: ISODate): ImportRange {
+  return { from: range.from, through: through < range.from ? range.from : through };
+}
+
+export function importedTitle({ match }: Pick<ImportedMeal, 'match'>): string {
+  if (match.kind === 'recipe') return match.title;
+  return match.kind === 'leftovers' ? 'Leftovers' : match.name;
 }
 
 /** What a review would save: meals with a day that hasn't passed. */
-export function placementsToSave(meals: readonly ImportedMeal[], start: ISODate, today: ISODate): ImportPlacement[] {
-  return meals.flatMap(meal => {
-    const date = importedDate(meal, start);
-    return date && date >= today ? [{ date, slot: meal.slot, match: meal.match }] : [];
-  });
+export function placementsToSave(meals: readonly ImportedMeal[], today: ISODate): ImportPlacement[] {
+  return meals.flatMap(({ date, slot, match }) => (date && date >= today ? [{ date, slot, match }] : []));
 }
 
 /** The meal slots more than one line landed on. A slot holds one meal; extras can pile up. */

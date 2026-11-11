@@ -1,6 +1,5 @@
 // This phone's notifications: whose phone it is, turning them on, and what they'll be.
 import { useEffect, useState } from 'react';
-import { WEEKDAYS } from '../../../domain/dates.ts';
 import { clockText } from '../../../domain/household.ts';
 import { api } from '../../api.ts';
 import { useLoad } from '../../hooks/useLoad.ts';
@@ -64,7 +63,7 @@ export function NotificationsScreen() {
 
       <FormField label="What you’ll get">
         <div className="list">
-          <div className="list-row"><span className="grow">The weekly plan</span><span className="muted small">{WEEKDAYS[schedule.planWeekday]}s, {clockText(schedule.planTime)}</span></div>
+          {view.automaticPlanning.tripMorning && <div className="list-row"><span className="grow">Meals planned for the trip</span><span className="muted small">Grocery mornings, {clockText(schedule.planTime)}</span></div>}
           <div className="list-row"><span className="grow">“What did you make?”</span><span className="muted small">Every day, {clockText(schedule.checkinTime)}</span></div>
           <div className="list-row"><span className="grow">What to do the night before</span><span className="muted small">When a meal needs it, {clockText(schedule.nightBeforeTime)}</span></div>
         </div>

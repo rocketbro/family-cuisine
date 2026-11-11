@@ -5,6 +5,7 @@ import type { RecipeForm } from '../../domain/recipe-form.ts';
 import { checkRevision } from '../../domain/recipe-revision.ts';
 import type { RecipeRevision } from '../../shared/api-types.ts';
 import type { Deps } from './deps.ts';
+import { pantryRefs } from './recipes.ts';
 import { UserError } from './user-error.ts';
 
 const NOT_UNDERSTOOD = 'Claude couldn’t tell what to change, so nothing changed.';
@@ -15,12 +16,12 @@ export async function reviseRecipe(deps: Deps, slug: string, input: { said: stri
   const said = input.said.trim();
   if (!said) throw new UserError('We didn’t catch anything. Try again a little closer to the phone.');
 
-  const answer = await deps.ai.reviseRecipe({ said, form: input.form, pantryNames: deps.pantry.list().map(p => p.name) });
+  const answer = await deps.ai.reviseRecipe({ said, form: input.form, pantry: pantryRefs(deps) });
   if (!answer.understood) throw new UserError(answer.note.trim() || NOT_UNDERSTOOD, 422);
   const checked = checkRevision(input.form, answer);
   if ('problem' in checked) {
     deps.log(`left out a revision of ${slug}: ${checked.problem}`);
     throw new UserError(checked.problem, 502);
   }
-  return { form: checked.form, note: answer.note.trim() };
+  return { form: checked.form, note: answer.note.trim(), pantryMatches: answer.pantryMatches };
 }

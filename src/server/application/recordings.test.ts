@@ -46,7 +46,7 @@ describe('transcribeRecording', () => {
 
 describe('the daily recording sweep', () => {
   // 2026-11-08 is a Sunday; the schedule keeps every other job quiet where it can.
-  const schedule: Schedule = { planWeekday: 1, planTime: { hour: 8, minute: 0 }, checkinTime: { hour: 23, minute: 59 } };
+  const schedule: Schedule = { planTime: { hour: 8, minute: 0 }, checkinTime: { hour: 23, minute: 59 } };
 
   it('runs once a day without a restart', async () => {
     const { deps, recordings } = house();

@@ -1,0 +1,68 @@
+/* Importing a meal plan: the review is one day to a screen, with Save always under it. */
+
+.page.plan-review-page {
+  height: calc(100vh - var(--tabbar) - env(safe-area-inset-bottom));
+  height: calc(100dvh - var(--tabbar) - env(safe-area-inset-bottom));
+  padding: calc(env(safe-area-inset-top) + 8px) 0 0;
+  overflow: hidden;
+}
+@media (min-width: 900px) {
+  .page.plan-review-page { height: 100vh; height: 100dvh; padding: 24px 0 0; }
+}
+
+.plan-review { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.plan-review-empty { flex: 1; padding: 0 var(--gutter); }
+
+.plan-pager-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px 6px; }
+.plan-pager-where { font-family: var(--sans); font-size: 0.9rem; font-weight: 550; text-align: center; min-width: 0; }
+.plan-pager-head .icon-button:disabled { opacity: 0.25; cursor: default; }
+
+.plan-pager-frame { position: relative; flex: 1; min-height: 0; display: flex; }
+/* Must match the back gesture's EDGE. Panning sideways can't start here, so it's left to go back. */
+.plan-pager-edge { position: absolute; z-index: 1; left: 0; top: 0; bottom: 0; width: 28px; touch-action: pan-y; }
+.plan-pager {
+  flex: 1; min-width: 0; display: flex;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.plan-pager::-webkit-scrollbar { display: none; }
+.plan-pager-page {
+  flex: 0 0 100%; min-width: 0;
+  scroll-snap-align: start; scroll-snap-stop: always;
+  overflow-y: auto; overscroll-behavior-y: contain;
+  padding: 10px 28px 20px; /* The left side clears the edge strip, so nothing tappable sits under it. */
+}
+
+.plan-day { display: flex; flex-direction: column; gap: 26px; }
+.plan-day-empty { margin: 24px 0 0; color: var(--ink-soft); font-family: var(--serif); font-size: 1.3rem; }
+.plan-day-staying { padding-top: 14px; border-top: 1px solid var(--rule); }
+.plan-day-staying .eyebrow { display: block; margin-bottom: 6px; }
+.plan-day-staying p { display: grid; grid-template-columns: 72px 1fr; align-items: baseline; margin: 0 0 4px; }
+
+.plan-meal-slot { font-family: var(--sans); font-size: 0.74rem; letter-spacing: 0.04em; text-transform: capitalize; color: var(--ink-faint); }
+.plan-meal-name { font-size: 1.9rem; margin-top: 2px; overflow-wrap: anywhere; }
+.plan-meal-words { margin: 4px 0 0; font-size: 0.86rem; color: var(--ink-soft); overflow-wrap: anywhere; }
+.plan-meal-note { margin: 6px 0 0; font-size: 0.86rem; }
+.plan-meal-actions { gap: 16px; margin-top: 6px; align-items: center; }
+
+.plan-replaces { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 8px; font-size: 0.9rem; }
+.plan-replaces .button { height: auto; min-height: 34px; padding-block: 6px; text-align: left; overflow-wrap: anywhere; }
+
+.plan-clash { padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--radius-small); background: var(--surface); }
+.plan-clash-choice { margin-top: 8px; }
+.plan-clash-choice + .plan-clash-choice { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.plan-clash .plan-meal-slot { color: var(--ink); font-weight: 600; text-transform: none; }
+.plan-clash .plan-meal-name { font-size: 1.55rem; }
+
+.plan-save { flex: none; padding: 8px var(--gutter); border-top: 1px solid var(--rule); background: var(--paper); text-align: center; }
+.plan-save-reason { display: block; width: 100%; margin: 0 0 6px; padding: 2px 0; text-align: center; }
+.plan-start-over { display: block; margin: 2px auto 0; padding: 4px 8px; color: var(--ink-faint); font-weight: 400; }
+
+.plan-ideas-switch { flex: none; width: 112px; }
+
+/* Words waiting on the dictation bar stay above Save. */
+/* While talking, the day stays in full view to talk about: the bar lands on the Save it's holding back. */
+body:has(.plan-review) .dictation-bar { transform: translate(-50%, -48px); }
+body.dictating .page.plan-review-page, body:has(.dictation-bar.words) .page.plan-review-page { padding-bottom: 0; }

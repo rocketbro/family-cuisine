@@ -1,7 +1,7 @@
 // Asks Anthropic's web fetch tool for a page, when a site has turned our own fetch away and the
 // person said to try. It only fetches: the recipe is read afterwards by `recipeFromPage`, like any
 // other page, in a request with no tools. This one can reach only the site it was given, once,
-// and holds nothing private. What it fetched is a stranger's text and may be written to steer it.
+// and holds nothing private (not even the family's rules). It runs on the fast model, which takes web_fetch_20250910. What it fetched is a stranger's text and may be written to steer it.
 import Anthropic from '@anthropic-ai/sdk';
 import type { PageFetcherPort } from '../../application/ports/pages.ts';
 import { UserError } from '../../application/user-error.ts';

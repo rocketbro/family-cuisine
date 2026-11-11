@@ -9,11 +9,12 @@ import type { Recipe } from '../../domain/recipe.ts';
 import { pantryAfterMeal } from '../../domain/running-pantry.ts';
 import { beforeGroceries, nextTrip } from '../../domain/shop-schedule.ts';
 import type { Deps } from './deps.ts';
+import { pantryCountingLastTrip } from './pantry-with-trip.ts';
 import { shopSchedule } from './shop-schedule.ts';
 
 export function pantryForPlanning(deps: Deps, today: ISODate) {
   const schedule = shopSchedule(deps);
-  let pantry = deps.pantry.list();
+  let pantry = pantryCountingLastTrip(deps, today);
 
   for (const entry of deps.plan.range(today, nextTrip(today, schedule))) {
     // A settled meal is already out of the pantry.

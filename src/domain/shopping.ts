@@ -3,16 +3,20 @@ import { countable, ingredientStock } from './availability.ts';
 import { packagesNeeded, type CartNeed } from './cart-quantity.ts';
 import type { ISODate } from './dates.ts';
 import type { PackSize } from './pack-size.ts';
-import { findPantryItem, type PantryItem, type Store } from './pantry.ts';
+import { findPantryItem, standingIn, type PantryItem, type Store } from './pantry.ts';
 import { cookedSlug, type PlanEntry } from './plan.ts';
 import { shareNeeded } from './portion-amounts.ts';
 import type { Recipe } from './recipe.ts';
+import { inWalkingOrder, OTHER_SECTION } from './shop-sections.ts';
 
-export type ShoppingReason = 'needed' | 'unknown' | 'restock';
+/** `added`: someone typed it onto this trip's list (`trip-edits.ts`). */
+export type ShoppingReason = 'needed' | 'unknown' | 'restock' | 'added';
 
 export type ShoppingLine = {
   key: string;
   name: string;
+  /** The pantry item's aisle, or Other with no item. */
+  category: string;
   reason: ShoppingReason;
   /** Titles of the planned meals that need it. Empty for plain restocks. */
   neededFor: string[];
@@ -74,6 +78,7 @@ export function buildShoppingList({ entries, recipes, pantry, weekStore, from, t
       lines.set(key, {
         key,
         name: item?.name ?? ingredient.item,
+        category: item?.category ?? OTHER_SECTION,
         reason: item ? 'needed' : 'unknown',
         neededFor: [recipe.title],
         quantity: null,
@@ -115,13 +120,13 @@ export function buildShoppingList({ entries, recipes, pantry, weekStore, from, t
 
   for (const item of pantry) {
     const key = `p${item.id}`;
-    if (item.staple || item.occasional || item.status === 'have' || lines.has(key)) continue;
+    if (item.staple || item.occasional || item.status === 'have' || lines.has(key) || standingIn(item, pantry)) continue;
     lines.set(key, {
-      key, name: item.name, reason: 'restock', neededFor: [], quantity: null,
+      key, name: item.name, category: item.category, reason: 'restock', neededFor: [], quantity: null,
       store: storeFor(item, weekStore), pantryItemId: item.id, walmartItemId: item.walmartItemId, packages: item.minPackages, sizeUnknown: false,
     });
   }
-  return [...lines.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return inWalkingOrder([...lines.values()]);
 }
 
 export function storeFor(item: PantryItem | null, weekStore: Store): Store {

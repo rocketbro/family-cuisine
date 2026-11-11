@@ -1,6 +1,7 @@
 // The shapes the app's screens receive: types only. The server builds them in `application/recipe-views.ts`.
 import type { Availability, IngredientStock } from '../domain/availability.ts';
 import type { Ingredient } from '../domain/ingredient.ts';
+import type { MealOff } from '../domain/meal-off.ts';
 import type { PlanEntry } from '../domain/plan.ts';
 import type { Recipe } from '../domain/recipe.ts';
 import type { SubstitutableIngredient, Substitutions } from '../domain/substitutes.ts';
@@ -19,10 +20,20 @@ export type RecipeDetail = RecipeCard & Pick<Recipe, 'source' | 'body'> & {
   substituted: Substitutions;
 };
 
-export type PlanEntryView = PlanEntry & { recipe: RecipeCard | null; leftoversTitle: string | null };
+export type PlanEntryView = PlanEntry & {
+  recipe: RecipeCard | null;
+  leftoversTitle: string | null;
+  /** What was really made, once someone has said so. Only this can have leftovers. */
+  madeTitle: string | null;
+  /** Whether the swap sheet offers it as leftovers (`domain/dinner-left.ts`). */
+  leftoversOffered: boolean;
+};
 
 /** A recipe file that couldn't be read: a name to show as plain text, and what's wrong in plain words. */
 export type RecipeFileNotice = { file: string; problem: string };
 
 /** Says what went wrong when a screen can offer something better than the message. */
 export type ProblemCode = 'site-refused';
+
+/** A meal the app took off, with what is in its slot now. */
+export type MealOffView = MealOff & { replacement: string | null };

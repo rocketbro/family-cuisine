@@ -7,11 +7,8 @@ import {
   deleteRecipe, editRecipe, getRecipe, importFromPhotos, importFromUrl, importFromWords, keepPick, listRecipes,
   refreshRecipeImage, setRecipePhoto, setRecipeSeasons,
 } from '../../application/recipes.ts';
-import { toISODate } from '../../../domain/dates.ts';
-import { finishCooking } from '../../application/cooking.ts';
 import { reviseRecipe } from '../../application/revise-recipe.ts';
 import { SEASONS } from '../../../domain/seasons.ts';
-import { isoDate, planSlot } from '../schemas/common.ts';
 import { recipeChanges, recipeRevision } from '../schemas/recipes.ts';
 import { body, files, formText } from '../validate.ts';
 
@@ -45,14 +42,6 @@ export function recipeRoutes(deps: Deps) {
       return c.json({ ok: true });
     })
     .post('/:slug/image/refresh', async c => c.json({ found: await refreshRecipeImage(deps, c.req.param('slug')) }))
-    .post('/:slug/cooked', async c => {
-      const input = await body(c, z.object({
-        factor: z.number().positive(), date: isoDate.optional(), slot: planSlot.optional(),
-        substituted: z.record(z.string().regex(/^\d+$/), z.string().max(100)).optional(),
-      }));
-      const now = new Date();
-      return c.json(finishCooking(deps, { ...input, slug: c.req.param('slug'), today: toISODate(now), hour: now.getHours() + now.getMinutes() / 60 }));
-    })
     .post('/:slug/keep', c => {
       keepPick(deps, c.req.param('slug'));
       return c.json({ ok: true });

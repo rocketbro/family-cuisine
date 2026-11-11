@@ -13,7 +13,11 @@ function fresh<T>(key: string): State<T> {
   return { key, data: (cache.get(key) as T) ?? null, error: null, failures: 0 };
 }
 
-type Loaded<T> = { data: T | null; error: string | null; reload: () => Promise<void> };
+type Loaded<T> = {
+  data: T | null; error: string | null; reload: () => Promise<void>;
+  /** A background look with another read. Failing says nothing: the next look tries again. */
+  refresh: (read: () => Promise<T>) => Promise<void>;
+};
 
 export function useLoad<T>(key: string, load: () => Promise<T>): Loaded<T> {
   const [state, setState] = useState<State<T>>(() => fresh(key));
@@ -36,6 +40,14 @@ export function useLoad<T>(key: string, load: () => Promise<T>): Loaded<T> {
     }
   }, [key]);
 
+  const refresh = useCallback(async (read: () => Promise<T>) => {
+    const run = ++latest.current;
+    const data = await read().catch(() => null);
+    if (data === null) return;
+    cache.set(key, data);
+    if (run === latest.current) setState({ key, data, error: null, failures: 0 });
+  }, [key]);
+
   useEffect(() => {
     void reload();
     return onChange(() => void reload());
@@ -51,5 +63,5 @@ export function useLoad<T>(key: string, load: () => Promise<T>): Loaded<T> {
   }, [current.failures, reload]);
 
   // While there's something to show, keep showing it rather than an error.
-  return { data: current.data, error: current.data === null ? current.error : null, reload };
+  return { data: current.data, error: current.data === null ? current.error : null, reload, refresh };
 }

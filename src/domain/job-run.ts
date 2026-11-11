@@ -22,5 +22,5 @@ export const clockValue = ({ hour, minute }: ClockTime): string => `${String(hou
 
 export const minutesOf = ({ hour, minute }: ClockTime): number => hour * 60 + minute;
 
-/** When the scheduled jobs run: 0 = Sunday. */
-export type JobSchedule = { planWeekday: number; planTime: { hour: number; minute: number }; checkinTime: { hour: number; minute: number } };
+/** When the scheduled jobs run. */
+export type JobSchedule = { planTime: { hour: number; minute: number }; checkinTime: { hour: number; minute: number } };

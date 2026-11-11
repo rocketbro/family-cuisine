@@ -14,6 +14,7 @@ import { avoidedMealRoutes } from './routes/avoided-meals.ts';
 import { householdRoutes } from './routes/household.ts';
 import { checkinRoutes } from './routes/checkin.ts';
 import { listenRoutes } from './routes/listen.ts';
+import { neverAddRoutes } from './routes/never-add.ts';
 import { pantryRoutes } from './routes/pantry.ts';
 import { planImportRoutes } from './routes/plan-import.ts';
 import { planRoutes } from './routes/plan.ts';
@@ -47,6 +48,7 @@ export function createApp(deps: Deps, opts: AppOptions) {
     .route('/recordings', recordingRoutes(deps))
     .route('/shopping', shoppingRoutes(deps))
     .route('/receipts', receiptRoutes(deps))
+    .route('/never-add', neverAddRoutes(deps))
     .route('/checkin', checkinRoutes(deps))
     .route('/push', pushRoutes(deps))
     .route('/household', householdRoutes(deps));

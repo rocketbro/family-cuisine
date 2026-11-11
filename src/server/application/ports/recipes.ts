@@ -1,4 +1,5 @@
 import type { Ingredient } from '../../../domain/ingredient.ts';
+import type { PantryMatch } from '../../../domain/pantry-other-names.ts';
 import type { RecipeEdit } from '../../../domain/recipe-edit.ts';
 import type { RecipeFileProblem } from '../../../domain/recipe-file-problem.ts';
 import type { Recipe, RecipeMeal, RecipeImage, RecipeKind, RecipeSource } from '../../../domain/recipe.ts';
@@ -40,4 +41,6 @@ export type RecipeDraft = {
   notes: string | null;
   claudesPick?: boolean;
   nightBefore?: string | null;
+  /** What the model said each ingredient is in the pantry; becomes other names when the recipe is saved. Never written to the file. */
+  pantryMatches?: PantryMatch[];
 };

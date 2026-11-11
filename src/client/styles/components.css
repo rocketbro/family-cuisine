@@ -9,6 +9,8 @@
 .button.quiet { background: transparent; color: var(--ink); border-color: var(--rule); }
 .button.wide { width: 100%; }
 .button.small { min-height: 34px; padding: 0 14px; font-size: 0.82rem; }
+.button.danger { background: var(--missing); border-color: var(--missing); color: var(--paper); }
+.button.quiet.danger { background: transparent; color: var(--missing); border-color: var(--rule); }
 .button:disabled { opacity: 0.45; cursor: default; }
 
 .link-button {
@@ -150,8 +152,14 @@ button.card { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .category:has(.category-head[aria-expanded='false']) { margin-top: 18px; }
 
 /* The grocery list: prices at the right, and the total at the foot of the Aldi list. */
-.shop-line { cursor: pointer; }
+.aisle-head { margin: var(--space-s) 0 0; font-family: var(--sans); font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }
+.shop-tick { align-self: stretch; display: flex; align-items: center; padding: 0 8px 0 2px; cursor: pointer; }
+.shop-open { background: none; border: 0; padding: 4px 0; font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: 44px; overflow-wrap: anywhere; }
 .shop-line.done .shop-name { text-decoration: line-through; opacity: 0.5; }
+.line-choices { gap: 10px; margin-top: var(--space-s); }
+.line-choice { flex-direction: column; gap: 2px; min-height: 68px; padding-block: 10px; }
+.line-choice strong { font-size: 1.02rem; }
+.skipped-head { min-height: 44px; }
 .price-button { background: none; border: 0; padding: 6px 0 6px 8px; font: inherit; font-variant-numeric: tabular-nums; color: var(--ink); cursor: pointer; white-space: nowrap; }
 .price-button.empty { color: var(--ink-faint); font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px; }
 .price-field { width: 84px; padding: 6px 8px; text-align: right; flex: none; }
@@ -183,8 +191,9 @@ button.card { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .swipe-row img { -webkit-user-drag: none; }
 .swipe-content { position: relative; background: var(--paper); }
 .swipe-mark { position: absolute; inset: 0; display: none; align-items: center; padding: 0 22px; }
-.swipe-mark-right { background: var(--accent); color: var(--accent-ink); }
-.swipe-mark-left { justify-content: flex-end; background: var(--surface); color: var(--ink); }
+/* Swiping left uncovers the right edge, where the done check sits: that's the accent. */
+.swipe-mark-right { background: var(--surface); color: var(--ink); }
+.swipe-mark-left { justify-content: flex-end; background: var(--accent); color: var(--accent-ink); }
 .swipe-row[data-swipe='right'] .swipe-mark-right, .swipe-row[data-swipe='left'] .swipe-mark-left { display: flex; }
 .add-extra { display: inline-flex; align-items: center; gap: 4px; margin-top: 18px; }
 .meal + .meal { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--rule); }
@@ -195,3 +204,19 @@ button.card { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .night-before svg { flex: none; margin-top: 0.2em; }
 .night-before.tomorrow { margin-top: 12px; color: var(--ink-soft); text-decoration: none; }
 .night-before.on-recipe { margin-top: 12px; justify-content: center; font-size: 0.95rem; text-align: left; }
+
+/* The check-in's last screen sits in the middle of what the tab bar leaves. */
+.checkin-done {
+  min-height: calc(100dvh - env(safe-area-inset-top) - 18px - var(--tabbar) - env(safe-area-inset-bottom) - 32px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center;
+}
+.checkin-done h1, .checkin-done p { margin: 0; }
+.checkin-done p { font-size: 1.1rem; }
+.checkin-done .button { margin-top: 12px; }
+
+/* A meal at the check-in: what it was, then what became of it. */
+.list-row.checkin-meal { flex-direction: column; align-items: stretch; gap: 8px; }
+.checkin-meal-controls { display: flex; align-items: center; gap: 8px; }
+.checkin-meal-controls .segmented { flex: 1; }
+/* Sized by their words, so "Something else" breaks between them on the narrowest phone. */
+.checkin-meal-controls .segmented button { flex: 1 1 auto; min-width: min-content; padding: 0 8px; overflow-wrap: normal; }

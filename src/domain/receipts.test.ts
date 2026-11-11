@@ -15,6 +15,13 @@ describe('shopping trips', () => {
     expect(diff.skipped.map(l => l.name)).toEqual(['eggs']);
     expect(diff.extras.map(l => l.name)).toEqual(['gum']);
   });
+  it('counts a list line as bought when something stood in for it', () => {
+    const list = [tripLine(253, 'jasmine rice', { store: 'walmart' }), tripLine(30, 'lettuce', { store: 'walmart' })];
+    const diff = tripDiff(list, [{ store: 'walmart', lines: [bought('basmati rice', 201, { insteadOf: 'p253' })] }]);
+    expect(diff.bought.map(b => [b.line.name, b.matched[0].name])).toEqual([['jasmine rice', 'basmati rice']]);
+    expect(diff.skipped.map(l => l.name)).toEqual(['lettuce']);
+    expect(diff.extras).toEqual([]);
+  });
   it('matches new items by name', () => {
     const diff = tripDiff([tripLine(1, 'Pinto Beans', { pantryItemId: null })], [{ store: 'aldi', lines: [bought('pinto bean', 7)] }]);
     expect(diff.bought).toHaveLength(1);

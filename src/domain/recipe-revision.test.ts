@@ -8,7 +8,7 @@ const sent: RecipeForm = {
 };
 const same: SaidRevision = {
   understood: true, note: 'Nothing to do.', title: 'Soup', meals: ['dinner'], serves: 4, time: '30 min', nightBefore: null, summary: 'A soup.',
-  ingredients: ['3 cloves garlic', '1 cup cream', 'our good salt to taste'], body: '## Steps\n1. Add the cream.',
+  ingredients: ['3 cloves garlic', '1 cup cream', 'our good salt to taste'], body: '## Steps\n1. Add the cream.', pantryMatches: [],
 };
 const check = (over: Partial<SaidRevision>, form = sent) => checkRevision(form, { ...same, ...over });
 const problem = (over: Partial<SaidRevision>, form = sent) => {

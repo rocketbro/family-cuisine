@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseUnit } from '../../../domain/units.ts';
-import { listenPrompt, NIGHT_BEFORE_PROMPT, pantryMealPrompt, plannerPrompt, RECIPE_PROMPT, REVISE_RECIPE_PROMPT, withCookingRules, withTheirWords, writeRecipePrompt } from './prompts.ts';
+import { listenPrompt, NIGHT_BEFORE_PROMPT, pantryMealPrompt, plannerPrompt, RECIPE_PROMPT, REVISE_RECIPE_PROMPT, writeRecipePrompt } from './prompts.ts';
+import { FAMILY_RULES_LABEL, withFamilyRules } from './family-rules.ts';
 
 const family = { family: 'Two adults and a toddler.', portions: 3, dinnerTime: '5:45 PM' };
 const fresh = { family: '', portions: 4, dinnerTime: '6:30 PM' };
@@ -54,20 +55,24 @@ describe('changing a recipe', () => {
   });
   it('keeps the rules to what it changes, not the whole recipe', () => {
     expect(REVISE_RECIPE_PROMPT).toContain("Don't rewrite anything else");
-    expect(withCookingRules(REVISE_RECIPE_PROMPT, 'Butter, never margarine.')).toContain('"""Butter, never margarine."""');
+    expect(withFamilyRules(REVISE_RECIPE_PROMPT, 'Butter, never margarine.', 'write')).toContain('"""Butter, never margarine."""');
   });
 });
 
-describe('kitchen notes', () => {
-  it('reach the prompts that plan and write', () => {
-    expect(withCookingRules('P', 'Butter, never margarine.')).toContain('"""Butter, never margarine."""');
-    expect(withCookingRules('P', '  ')).toBe('P');
-    expect(withCookingRules('P', null)).toBe('P');
+describe('family rules', () => {
+  it('come as one labeled block that outranks the source, for prompts that plan and write', () => {
+    const prompt = withFamilyRules('P', 'Butter, never margarine.', 'write');
+    expect(prompt).toContain(FAMILY_RULES_LABEL);
+    expect(prompt).toContain('"""Butter, never margarine."""');
+    expect(prompt).toContain('outrank the source material');
+    expect(withFamilyRules('P', '  ', 'write')).toBe('P');
+    expect(withFamilyRules('P', null, 'read')).toBe('P');
   });
-  it('also reach dictation, so a naming rule moved there still works', () => {
-    const prompt = withTheirWords(listenPrompt(family), 'Concentrate is the item "broth".');
+  it('under the same label help read their names for things, without being news', () => {
+    const prompt = withFamilyRules(listenPrompt(family), 'Concentrate is the item "broth".', 'read');
+    expect(prompt).toContain(FAMILY_RULES_LABEL);
     expect(prompt).toContain('"""Concentrate is the item "broth"."""');
     expect(prompt).toContain('which pantry item a name refers to');
-    expect(withTheirWords('P', null)).toBe('P');
+    expect(prompt).toContain('not news about the pantry');
   });
 });

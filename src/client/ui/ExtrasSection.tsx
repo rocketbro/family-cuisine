@@ -5,12 +5,10 @@ import { beforeGroceries, type ShopSchedule } from '../../domain/shop-schedule.t
 import { extrasOnly, isExtraSlot } from '../../domain/plan-slot.ts';
 import type { ISODate } from '../../domain/dates.ts';
 import type { PlanEntryView } from '../../shared/views.ts';
-import { api } from '../api.ts';
-import { announceChange } from '../data-events.ts';
 import { useToday } from '../hooks/useToday.ts';
-import { useWrite } from '../hooks/useWrite.ts';
 import { Problem } from './Common.tsx';
 import { ExtraSheet } from './ExtraSheet.tsx';
+import { useMealDone } from '../screens/checkin/useMealDone.tsx';
 import { DoneCheck, MealBody } from './MealCard.tsx';
 import { NightBeforeNote } from './NightBeforeNote.tsx';
 import { SwipeRow } from './SwipeRow.tsx';
@@ -30,16 +28,11 @@ export function ExtrasSection({ date, entries, schedule }: { date: ISODate; entr
 function ExtraCard({ entry, schedule }: { entry: PlanEntryView; schedule: ShopSchedule }) {
   const [changing, setChanging] = useState(false);
   const today = useToday();
-  const write = useWrite();
-  const done = entry.outcome === 'made' || entry.outcome === 'swapped';
+  const { done, toggle: toggleDone, write, sheet: doneSheet } = useMealDone(entry);
   const canCheck = entry.date <= today;
   // What's come off the pantry stays on the record, so there's nothing to change.
   const settled = entry.pantrySettled || entry.checkinSettled;
   const change = () => { if (!settled) setChanging(true); };
-  const toggleDone = () => write.run(async () => {
-    await api.setMealDone(entry.date, entry.slot, !done);
-    announceChange();
-  });
   const notOnList = !entry.outcome && entry.recipe && entry.recipe.availability.level !== 'ready' && beforeGroceries(entry.date, today, schedule);
   return (
     <section className={`section meal ${done ? 'done' : ''}`}>
@@ -47,13 +40,14 @@ function ExtraCard({ entry, schedule }: { entry: PlanEntryView; schedule: ShopSc
         <span className="eyebrow">Extra</span>
         {!settled && <button className="link-button phone-quiet" onClick={change}>Change</button>}
       </div>
-      <SwipeRow onSwipeRight={canCheck ? () => { void toggleDone(); } : undefined} onSwipeLeft={change}
-        rightMark={<Check size={22} strokeWidth={3} />} leftMark={<ArrowLeftRight size={22} />}>
+      <SwipeRow onSwipeLeft={canCheck ? () => { void toggleDone(); } : undefined} onSwipeRight={change}
+        leftMark={<Check size={22} strokeWidth={3} />} rightMark={<ArrowLeftRight size={22} />}>
         <div className="meal-card">
           <MealBody entry={entry} swap={change} />
           {canCheck && <DoneCheck slot={entry.slot} done={done} onToggle={toggleDone} />}
         </div>
       </SwipeRow>
+      {doneSheet}
       <NightBeforeNote entry={entry} />
       {entry.kind === 'note' && !entry.outcome && <p className="faint small" style={{ margin: '8px 0 0' }}>No recipe yet, so nothing goes on the list or comes off the pantry for it.</p>}
       {notOnList && <p className="faint small" style={{ margin: '8px 0 0' }}>This comes before the next shopping trip, so what’s missing isn’t on that trip’s list.</p>}

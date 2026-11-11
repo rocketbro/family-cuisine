@@ -21,6 +21,12 @@ export function unsentLines(lines: readonly CartLine[], sent: SentToCart): CartL
     .filter(line => line.quantity > 0);
 }
 
+/** Whether some of a line has gone to the cart, going by what's still to send. The app can't take it back out. */
+export function alreadySent(line: { walmartItemId: string | null; packages: number }, toSend: readonly CartLine[]): boolean {
+  if (!line.walmartItemId) return false;
+  return (toSend.find(l => l.itemId === line.walmartItemId)?.quantity ?? 0) < line.packages;
+}
+
 export function addSent(sent: SentToCart, lines: readonly CartLine[]): SentToCart {
   const next = { ...sent };
   for (const line of lines) next[line.itemId] = (next[line.itemId] ?? 0) + line.quantity;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addDays } from '../../domain/dates.ts';
 import { checkinView, confirmPlannedMeals, recordMeal, recordPantry } from './checkin.ts';
-import { finishCooking } from './cooking.ts';
+import { finishCooking } from './test-support/cook-meal.ts';
 import { recipe } from '../../domain/test-fixtures.ts';
 import { failOnce, plannedRecipe, TODAY, transactionalFakes } from './test-support/transactional-fakes.ts';
 

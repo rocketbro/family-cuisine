@@ -20,6 +20,11 @@ describe('what a check-in asks', () => {
     expect(q.counts).toEqual([{ pantryItemId: 1, name: 'eggs', estimate: 2, onHand: 3 }]);
     expect(q.needs.map(n => n.name)).toEqual(['peanut butter', 'bread']);
   });
+  it('starts each need where the pantry stands, so Done doesn’t undo a low item', () => {
+    const q = checkinQuestions(entries, '2026-11-04', recipes, pantry);
+    expect(q.needs.find(n => n.name === 'peanut butter')?.answer).toBe('low');
+    expect(q.needs.find(n => n.name === 'bread')?.answer).toBe('fine');
+  });
   it('skips meals whose pantry cook mode already settled', () => {
     const settled = entries.map(e => ({ ...e, pantrySettled: e.slot === 'breakfast' }));
     const q = checkinQuestions(settled, '2026-11-04', recipes, pantry);

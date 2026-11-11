@@ -62,6 +62,9 @@ export function withoutSource(entry: PlanEntry): PlanEntry {
   return { ...entry, leftoversOf: null };
 }
 
+/** No outcome, and nothing came off the pantry for it: unticking a meal doesn't put back what it used. */
+export const stillOnlyPlanned = (entry: PlanEntry) => !entry.outcome && !entry.pantrySettled && !entry.checkinSettled;
+
 /** The recipe that was (or will be) cooked for an entry, after any swap. */
 export function cookedSlug(entry: PlanEntry): string | null {
   if (entry.outcome === 'skipped') return null;

@@ -1,11 +1,8 @@
 // Entry point: seed on first run, make sure today is planned, serve, and tick the scheduler.
-import { mealsOnly } from '../domain/plan-slot.ts';
 import { serve } from '@hono/node-server';
 import { toISODate } from '../domain/dates.ts';
-import { planHorizonEnd } from '../domain/shop-schedule.ts';
-import { shopSchedule } from './application/shop-schedule.ts';
 import { runDueJobs } from './application/jobs.ts';
-import { planAhead } from './application/planning.ts';
+import { catchUpPlan } from './application/plan-catch-up.ts';
 import { findRecipeImage } from './application/recipes.ts';
 import { learnWalmartPacks } from './application/walmart-packs.ts';
 import { allowedHostnames, startupProblem } from './config-rules.ts';
@@ -34,16 +31,14 @@ const app = createApp(deps, {
 log(`answering to ${hostnames.join(', ')}; access token ${config.accessToken ? 'on' : 'off'}`);
 
 const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host }, info =>
-  log(`Cuisine on http://${info.address}:${info.port} (model ${deps.ai.available() ? config.model : 'off'}, photos ${deps.images.available() ? 'Unsplash' : 'off'}, push ${deps.notifier.enabled() ? 'on' : 'off'}, Aldi lookup ${deps.storePrices ? 'on' : 'off'}, Walmart lookup ${deps.walmartProducts ? 'on' : 'off'})`),
+  log(`Cuisine on http://${info.address}:${info.port} (model ${deps.ai.available() ? `${config.model}, fast ${config.fastModel}` : 'off'}, photos ${deps.images.available() ? 'Unsplash' : 'off'}, push ${deps.notifier.enabled() ? 'on' : 'off'}, Aldi lookup ${deps.storePrices ? 'on' : 'off'}, Walmart lookup ${deps.walmartProducts ? 'on' : 'off'})`),
 );
 
 // Planning can write new recipes, which takes a while, so it never holds up the app coming back.
 async function catchUp(): Promise<void> {
   const today = toISODate(new Date());
-  // An extra on an otherwise empty day still leaves its meals to plan.
-  const unplanned = !mealsOnly(deps.plan.range(today, today)).length;
-  const { added } = await planAhead(deps, today, unplanned ? planHorizonEnd(today, shopSchedule(deps)) : null);
-  if (unplanned) log(`first plan: ${added} meals`);
+  const added = await catchUpPlan(deps, today);
+  if (added !== null) log(`first plan: ${added} meals`);
   for (const recipe of deps.recipes.list()) await findRecipeImage(deps, recipe);
   await learnWalmartPacks(deps);
 }

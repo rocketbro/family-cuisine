@@ -2,6 +2,7 @@
 // is on (see the README); otherwise nothing here calls out. Best effort: when the lookup breaks, the list keeps whatever prices it had and typed ones fill the gaps.
 import type { ISODate } from '../../domain/dates.ts';
 import { needsLookup } from '../../domain/prices.ts';
+import { canLookUpPrice } from '../../domain/trip-edits.ts';
 import type { Deps } from './deps.ts';
 import { recentMisses, recordMisses } from './lookup-misses.ts';
 import { runOnce } from './lookup-state.ts';
@@ -19,7 +20,7 @@ async function lookUp(deps: Deps, today: ISODate): Promise<number> {
   if (!location || !deps.storePrices) return 0;
   const now = new Date();
   const misses = recentMisses(deps, now);
-  const stale = shoppingWeek(deps, today).lines.filter(l => l.store === 'aldi' && needsLookup(l.price, now) && !misses.has(l.name));
+  const stale = shoppingWeek(deps, today).lines.filter(canLookUpPrice).filter(l => l.store === 'aldi' && needsLookup(l.price, now) && !misses.has(l.name));
   if (!stale.length) return 0;
   const quotes = await deps.storePrices.lookup(stale.map(l => l.name), location);
   // The lookup took a while. These answers are for a store they've since moved away from.

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ImportPlacement } from '../../domain/plan-import.ts';
+import { defaultImportRange, type ImportPlacement } from '../../domain/plan-import.ts';
 import { extrasOnly } from '../../domain/plan-slot.ts';
 import { blankEntry } from '../../domain/plan.ts';
 import { pantryItem, recipe } from '../../domain/test-fixtures.ts';
@@ -8,6 +8,7 @@ import { keepPlanCookable } from './keep-plan-cookable.ts';
 import { confirmPlanImport, discardPlanImport, planImportView, retryPlanImport, startPlanImport } from './plan-import.ts';
 import { planAhead } from './planning.ts';
 import type { SaidPlanMeal } from './ports/ai.ts';
+import { shopSchedule } from './shop-schedule.ts';
 import { deferred, fakeDeps } from './test-support/full-deps-fake.ts';
 import { transactionalFakes } from './test-support/transactional-fakes.ts';
 
@@ -38,14 +39,15 @@ function setUp(meals: SaidPlanMeal[], opts: { ai?: boolean } = {}) {
   return { deps, calls };
 }
 
-async function read(deps: Deps, text = 'tacos Tues') {
-  startPlanImport(deps, { text, photos: [] }, TODAY);
+async function read(deps: Deps, range: { from?: string; through?: string } = {}) {
+  startPlanImport(deps, { text: 'tacos Tues', photos: [], ...range }, TODAY);
   await settle();
   const view = planImportView(deps);
   if (view.status !== 'ready') throw new Error(`not ready: ${JSON.stringify(view)}`);
   return view;
 }
 
+const planImportDefault = (deps: Deps) => defaultImportRange(TODAY, shopSchedule(deps));
 const place = (date: string, slot: ImportPlacement['slot'], match: ImportPlacement['match']): ImportPlacement => ({ date, slot, match });
 const NAMED = { kind: 'named', name: 'Tacos' } as const;
 
@@ -75,9 +77,71 @@ describe('reading a plan', () => {
     expect(planImportView(deps).status).toBe('ready');
   });
 
-  it('assumes the week from the first day the plan names', async () => {
-    const { deps } = setUp([said({ weekday: 'Monday' }), said({ weekday: 'Friday', slot: 'lunch' })]);
-    expect((await read(deps)).weekStart).toBe('2026-11-09');
+  it('puts days in written order from the start of the range, so a day that comes round again is the later one', async () => {
+    const { deps, calls } = setUp(['Saturday', 'Sunday', 'Monday', 'Saturday', 'Sunday'].map(weekday => said({ weekday })));
+    startPlanImport(deps, { text: 'plan', photos: [], from: '2026-11-07', through: '2026-11-13' }, TODAY);
+    await settle();
+    const view = planImportView(deps);
+    if (view.status !== 'ready') throw new Error('not ready');
+    expect(view.meals.map(m => m.date)).toEqual(['2026-11-07', '2026-11-08', '2026-11-09', '2026-11-14', '2026-11-15']);
+    expect(view.range).toEqual({ from: '2026-11-07', through: '2026-11-13' });
+    expect(calls[0][1].range).toEqual({ from: '2026-11-07', through: '2026-11-13' });
+  });
+
+  it('defaults to what the next trip shops for', async () => {
+    const { deps } = setUp([said({ weekday: 'Saturday' })]);
+    const trip = planImportDefault(deps);
+    expect((await read(deps)).range).toEqual(trip);
+  });
+
+  it('turns down a range that makes no sense', () => {
+    const { deps } = setUp([said({})]);
+    const start = (from: string | null, through: string | null) => () => startPlanImport(deps, { text: 'x', photos: [], from, through }, TODAY);
+    expect(start('2026-11-10', '2026-11-07')).toThrow(/comes before/);
+    expect(start('2026-02-30', '2026-03-01')).toThrow(/Choose the days/);
+    expect(start('2026-11-07', null)).toThrow(/Choose the days/);
+    expect(start('2026-11-07', '2027-11-07')).toThrow(/two months/);
+  });
+
+  it('keeps the range and the choice about Claude’s ideas through a retry', async () => {
+    const { deps, calls } = setUp([said({ weekday: 'Sunday' })]);
+    const works = deps.ai.readMealPlan;
+    deps.ai.readMealPlan = () => Promise.reject(new Error('nope'));
+    startPlanImport(deps, { text: 'x', photos: [], from: '2026-11-21', through: '2026-11-27', claudesIdeas: false }, TODAY);
+    await settle();
+    deps.ai.readMealPlan = works;
+    retryPlanImport(deps, TODAY);
+    await settle();
+    expect(calls[0][1].range.from).toBe('2026-11-21');
+    expect(planImportView(deps)).toMatchObject({ status: 'ready', claudesIdeas: false, range: { from: '2026-11-21' }, meals: [{ date: '2026-11-22' }] });
+  });
+
+  it('opens an import saved the old way, reading its week as the from date', () => {
+    const { deps } = setUp([]);
+    deps.household.saveSetting('plan_import', JSON.stringify({
+      id: 'old', createdAt: new Date().toISOString(), text: 'x', hadPhotos: false, status: 'ready', weekStart: '2026-11-09',
+      meals: [
+        { said: 'a', date: null, weekday: 1, slot: 'dinner', match: NAMED, confidence: 'sure' },
+        { said: 'b', date: null, weekday: 0, slot: 'dinner', match: NAMED, confidence: 'sure' },
+        { said: 'c', date: '2026-12-01', weekday: null, slot: 'dinner', match: NAMED, confidence: 'sure' },
+        { said: 'd', date: null, weekday: null, slot: 'dinner', match: NAMED, confidence: 'sure' },
+      ],
+    }));
+    const view = planImportView(deps);
+    expect(view).toMatchObject({ status: 'ready', claudesIdeas: true, range: { from: '2026-11-09', through: '2026-11-15' } });
+    if (view.status !== 'ready') throw new Error('not ready');
+    expect(view.meals.map(m => m.date)).toEqual(['2026-11-09', '2026-11-15', '2026-12-01', null]);
+    expect(view.meals[0]).not.toHaveProperty('weekday');
+    confirmPlanImport(deps, 'old', [place('2026-11-09', 'dinner', NAMED)], TODAY);
+    expect(planImportView(deps)).toMatchObject({ status: 'saved', saved: 1 });
+  });
+
+  it('opens other old records too, failed or saved', () => {
+    const { deps } = setUp([]);
+    deps.household.saveSetting('plan_import', JSON.stringify({ id: 'x', createdAt: new Date().toISOString(), text: 'x', hadPhotos: false, status: 'failed', error: 'no' }));
+    expect(planImportView(deps)).toMatchObject({ status: 'failed', canRetry: true });
+    deps.household.saveSetting('plan_import', JSON.stringify({ id: 'x', createdAt: new Date().toISOString(), text: null, hadPhotos: false, status: 'saved', saved: 2, leftAlone: 0 }));
+    expect(planImportView(deps)).toMatchObject({ status: 'saved', saved: 2, claudesIdeas: true });
   });
 
   it('keeps only real recipes; a slug the book doesn’t have stays a name, marked unsure', async () => {
@@ -102,11 +166,17 @@ describe('reading a plan', () => {
     const { deps } = setUp([said({ date: '2026-02-30', weekday: null }), said({ date: '2026-11-20', weekday: null, slot: 'lunch' })]);
     const { meals } = await read(deps);
     expect(meals.map(m => m.date)).toEqual([null, '2026-11-20']);
+    expect(meals[0]).not.toHaveProperty('weekday');
   });
 
   it('leftovers can’t be an extra', async () => {
     const { deps } = setUp([said({ kind: 'leftovers', slot: 'extra', name: null })]);
     expect((await read(deps)).meals[0]).toMatchObject({ slot: 'lunch', match: { kind: 'leftovers' } });
+  });
+
+  it('leaves a line with no day without one', async () => {
+    const { deps } = setUp([said({ weekday: null })]);
+    expect((await read(deps)).meals[0].date).toBeNull();
   });
 
   it('holds what the plan says to plain text and a sane size', async () => {
@@ -248,7 +318,7 @@ describe('saving a plan', () => {
     deps.ai = { available: () => true, readMealPlan: () => Promise.resolve([said({})]) } as unknown as Deps['ai'];
     const settings = new Map<string, string>();
     deps.household = { setting: (key: string) => settings.get(key) ?? null, saveSetting: (key: string, value: string | null) => void (value === null ? settings.delete(key) : settings.set(key, value)) } as unknown as Deps['household'];
-    const { id } = await read(deps);
+    const { id } = await read(deps, { from: '2026-11-07', through: '2026-11-13' });
     expect(() => confirmPlanImport(deps, id, [
       place('2026-11-10', 'dinner', NAMED),
       place('2026-11-10', 'extra', { kind: 'recipe', slug: 'gone', title: 'Gone' }),

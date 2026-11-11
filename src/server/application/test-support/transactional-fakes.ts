@@ -90,6 +90,7 @@ export function transactionalFakes(recipes: Recipe[] = []) {
     household: {
       storeFor: () => null,
       checkin: (date: string) => structuredClone(state.checkins[date] ?? { mealsDone: false, pantryDone: false }),
+      firstCheckin: () => Object.keys(state.checkins).sort()[0] ?? null,
       markCheckin(date: string, step: 'meals' | 'pantry') {
         const current = state.checkins[date] ?? { mealsDone: false, pantryDone: false };
         state.checkins[date] = { ...current, [step === 'meals' ? 'mealsDone' : 'pantryDone']: true };
@@ -99,7 +100,7 @@ export function transactionalFakes(recipes: Recipe[] = []) {
         if (value === null) delete state.settings[key];
         else state.settings[key] = value;
       },
-      tripMoves: () => ({}),
+      shopTrips: () => [],
     },
     prices: {
       forStore: (store: string) => new Map(state.prices.filter(p => p.store === store).map(p => [p.itemId, p.price])),
@@ -130,7 +131,7 @@ export function transactionalFakes(recipes: Recipe[] = []) {
     },
     lookups: newLookupState(),
     ai: { available: () => true, interpret: async () => ({ summary: '', pantry: [], meals: [], questions: [] }) },
-    settings: { shopWeekday: FRIDAY, historyDays: 14, dinnerTime: '18:00', schedule: { planWeekday: 0, planTime: { hour: 8, minute: 0 }, checkinTime: { hour: 19, minute: 45 } } },
+    settings: { shopWeekday: FRIDAY, historyDays: 14, dinnerTime: '18:00', schedule: { planTime: { hour: 8, minute: 0 }, checkinTime: { hour: 19, minute: 45 } } },
     log: () => {},
   };
 

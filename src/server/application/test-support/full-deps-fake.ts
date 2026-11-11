@@ -45,6 +45,7 @@ export type Fakes = Deps & {
 const notFaked = (port: string) => new Proxy({}, { get: (_t, name) => { throw new Error(`${port}.${String(name)} isn't faked`); } });
 
 export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?: boolean; shopWeekday?: number } = {}): Fakes {
+  let shopTrips: string[] = [];
   const recipes = new Map((opts.recipes ?? []).map(r => [r.slug, r]));
   const pantry = opts.pantry ?? [];
   const entries = new Map<string, PlanEntry>();
@@ -121,13 +122,14 @@ export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?:
       setStore: () => undefined,
       checkin: () => ({ mealsDone: false, pantryDone: false }),
       markCheckin: () => undefined,
+      firstCheckin: () => null,
       setting: key => settings.get(key) ?? null,
       saveSetting(key, value) {
         if (value === null) settings.delete(key);
         else settings.set(key, value);
       },
-      tripMoves: () => ({}),
-      moveTrip: () => undefined,
+      shopTrips: () => shopTrips,
+      saveShopTrips(dates) { shopTrips = [...dates]; },
       claimJob(job, runKey, now, leaseUntil) {
         if (!jobClaimable(jobs.get(jobKey(job, runKey)) ?? null, now)) return false;
         jobs.set(jobKey(job, runKey), { completedAt: null, leaseUntil });
@@ -150,6 +152,7 @@ export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?:
     },
     receipts: {
       ...notFaked('receipts') as Deps['receipts'],
+      list: () => [],
       tripList: shopDate => (trips.get(shopDate) ?? null) as ReturnType<Deps['receipts']['tripList']>,
       saveTripList: (shopDate, lines) => void trips.set(shopDate, lines),
     },
@@ -194,7 +197,7 @@ export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?:
         return fakes.send();
       },
     },
-    settings: { shopWeekday: opts.shopWeekday ?? 3, historyDays: 14, dinnerTime: '18:00', nightBeforeTime: { hour: 17, minute: 0 }, schedule: { planWeekday: 0, planTime: { hour: 8, minute: 0 }, checkinTime: { hour: 19, minute: 45 } } },
+    settings: { shopWeekday: opts.shopWeekday ?? 3, historyDays: 14, dinnerTime: '18:00', nightBeforeTime: { hour: 17, minute: 0 }, schedule: { planTime: { hour: 8, minute: 0 }, checkinTime: { hour: 19, minute: 45 } } },
     log: message => void logged.push(message),
   };
   return fakes;

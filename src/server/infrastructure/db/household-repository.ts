@@ -17,6 +17,9 @@ export function sqliteHouseholdRepository(db: DB): HouseholdRepository {
       const row = db.prepare('SELECT meals_done_at, pantry_done_at FROM checkins WHERE date = ?').get(date) as { meals_done_at: string | null; pantry_done_at: string | null } | undefined;
       return { mealsDone: Boolean(row?.meals_done_at), pantryDone: Boolean(row?.pantry_done_at) };
     },
+    firstCheckin() {
+      return (db.prepare('SELECT MIN(date) AS first FROM checkins').get() as { first: string | null }).first;
+    },
     markCheckin(date, step) {
       const column = step === 'meals' ? 'meals_done_at' : 'pantry_done_at';
       db.prepare(`INSERT INTO checkins (date, ${column}) VALUES (?, datetime('now')) ON CONFLICT (date) DO UPDATE SET ${column} = datetime('now')`).run(date);
@@ -28,14 +31,14 @@ export function sqliteHouseholdRepository(db: DB): HouseholdRepository {
       if (value === null) db.prepare('DELETE FROM household_settings WHERE key = ?').run(key);
       else db.prepare('INSERT INTO household_settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value').run(key, value);
     },
-    tripMoves() {
-      const rows = db.prepare('SELECT regular, actual FROM trip_moves').all() as { regular: string; actual: string }[];
-      return Object.fromEntries(rows.map(r => [r.regular, r.actual]));
+    shopTrips() {
+      return (db.prepare('SELECT date FROM shop_trips ORDER BY date').all() as { date: string }[]).map(row => row.date);
     },
-    moveTrip(regular, actual) {
-      if (actual === null || actual === regular) db.prepare('DELETE FROM trip_moves WHERE regular = ?').run(regular);
-      else db.prepare('INSERT INTO trip_moves (regular, actual) VALUES (?, ?) ON CONFLICT (regular) DO UPDATE SET actual = excluded.actual').run(regular, actual);
-    },
+    saveShopTrips: dates => db.transaction(() => {
+      db.prepare('DELETE FROM shop_trips').run();
+      const insert = db.prepare('INSERT INTO shop_trips (date) VALUES (?)');
+      for (const date of dates) insert.run(date);
+    })(),
     claimJob: (job, runKey, now, leaseUntil) => db.transaction(() => {
       const row = db.prepare('SELECT completed_at, lease_until FROM job_runs WHERE job = ? AND run_key = ?')
         .get(job, runKey) as { completed_at: string | null; lease_until: string | null } | undefined;

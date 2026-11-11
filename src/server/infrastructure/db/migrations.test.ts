@@ -140,3 +140,47 @@ describe('migration 18: naming the package columns for either store', () => {
     expect(db.prepare('SELECT * FROM pantry_items').all()).toEqual(once);
   });
 });
+
+describe('trips becoming dates', () => {
+  const BEFORE_TRIPS = 19;
+  function withTrips() {
+    const db = new Database(':memory:');
+    migrate(db, BEFORE_TRIPS);
+    const setting = db.prepare('INSERT INTO household_settings (key, value) VALUES (?, ?)');
+    setting.run('shop_weekday', '3');
+    setting.run('trip_plan:2999-01-06', JSON.stringify({ trip: '2999-01-06', findsCents: 500 }));
+    setting.run('walmart_cart_sent', JSON.stringify({ shopDate: '2999-01-06', items: { 1: 2 } }));
+    db.prepare('INSERT INTO trip_moves (regular, actual) VALUES (?, ?)').run('2999-01-06', '2999-01-04');
+    db.prepare("INSERT INTO plan_entries (date, slot, kind) VALUES (?, 'dinner', 'note')").run('2020-01-08');
+    migrate(db);
+    return db;
+  }
+  const trips = (db: Database.Database) => (db.prepare('SELECT date FROM shop_trips ORDER BY date').all() as { date: string }[]).map(r => r.date);
+  const setting = (db: Database.Database, key: string) => (db.prepare('SELECT value FROM household_settings WHERE key = ?').get(key) as { value: string } | undefined)?.value;
+
+  it('puts past usual trips and the moved one on record, and no future usual ones', () => {
+    const dates = trips(withTrips());
+    expect(dates).toContain('2020-01-08');
+    expect(dates.at(-1)).toBe('2999-01-04');
+    expect(dates.filter(date => date > '2100-01-01')).toEqual(['2999-01-04']);
+  });
+
+  it('moves what was kept under the usual date to the real one', () => {
+    const db = withTrips();
+    expect(setting(db, 'trip_plan:2999-01-06')).toBeUndefined();
+    expect(JSON.parse(setting(db, 'trip_plan:2999-01-04')!)).toEqual({ trip: '2999-01-04', findsCents: 500 });
+    expect(JSON.parse(setting(db, 'walmart_cart_sent')!).shopDate).toBe('2999-01-04');
+  });
+
+  it('drops the old setting and table', () => {
+    const db = withTrips();
+    expect(setting(db, 'shop_weekday')).toBeUndefined();
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'trip_moves'").get()).toBeUndefined();
+  });
+
+  it('starts with no trips when none was ever set, so the default weekday applies', () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    expect(trips(db)).toEqual([]);
+  });
+});

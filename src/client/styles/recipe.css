@@ -55,6 +55,7 @@ button.portrait.busy { opacity: 0.5; }
 .revision-note > .lucide { margin-top: 2px; color: var(--accent); }
 .revision-note p { margin: 0; max-height: 5.5em; overflow-y: auto; }
 .revision-note strong { color: var(--ink); font-weight: 600; }
+.carried-words .button { margin-top: 8px; }
 
 /* Substitutes: the link under the status, and the sheet. */
 .subs-link { background: none; border: 0; padding: 0; margin-top: 8px; font: inherit; color: var(--ink-soft); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
@@ -66,3 +67,6 @@ button.portrait.busy { opacity: 0.5; }
 .sub-check { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 1.5px solid var(--ink-faint); display: grid; place-items: center; margin-top: 1px; }
 .sub-option[aria-pressed='true'] .sub-check { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .ingredients .swapped { font-style: italic; }
+
+/* Cooking mode's only control: Done, top right, kept in view as the page scrolls. */
+.cooking-bar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: flex-end; padding: 8px 0; background: var(--paper); }

@@ -1,33 +1,41 @@
-// The shopping day: a regular weekday, and this week's trip moved when life happens.
-// Changing either re-checks the plan, since the days before groceries only get ready meals.
+// Choosing when a trip happens. What's kept for the trip goes with it, and the plan is re-checked,
+// since the days before groceries only get ready meals.
 import { addDays, type ISODate } from '../../domain/dates.ts';
-import { nextTrip, planHorizonEnd, regularFor, regularTrip } from '../../domain/shop-schedule.ts';
+import { plansOnItsOwn, tripMorningRuns } from '../../domain/automatic-planning.ts';
+import { nextTrip, tripWindow, withTripMoved } from '../../domain/shop-schedule.ts';
+import { automaticPlanning } from './automatic-planning.ts';
 import type { Deps } from './deps.ts';
 import { replanAfterChange } from './planning.ts';
-import { saveShopWeekday, shopSchedule } from './shop-schedule.ts';
+import { shopSchedule } from './shop-schedule.ts';
+import { moveTripPlan } from './trip-plan.ts';
 import { UserError } from './user-error.ts';
+import { moveSentToCart } from './walmart-cart.ts';
 
-export async function setShopWeekday(deps: Deps, today: ISODate, weekday: number): Promise<void> {
-  if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) throw new UserError('Pick a day of the week.');
-  saveShopWeekday(deps, weekday);
-  await replan(deps, today);
-}
+/** How far ahead a trip can be put, so a mistyped year doesn't empty the calendar. */
+const FARTHEST_DAYS = 8 * 7;
 
-/** Moves only the coming trip. `actual` null puts it back on the regular day. */
-export async function moveNextTrip(deps: Deps, today: ISODate, actual: ISODate | null): Promise<void> {
+export async function moveTrip(deps: Deps, today: ISODate, from: ISODate, to: ISODate): Promise<void> {
   const schedule = shopSchedule(deps);
-  const regular = regularFor(nextTrip(today, schedule), schedule);
-  if (actual !== null) {
-    const following = regularTrip(addDays(regular, 1), schedule.weekday);
-    if (actual < today || actual >= addDays(following, 7)) throw new UserError('Pick a day between today and the week after.');
-  }
-  // The store choice for the trip follows it to its new day.
-  const store = deps.household.storeFor(nextTrip(today, schedule));
-  deps.household.moveTrip(regular, actual);
-  if (store) deps.household.setStore(nextTrip(today, shopSchedule(deps)), store);
+  if (nextTrip(from, schedule) !== from || from < tripWindow(today, schedule).start) throw new UserError('That trip isn’t on the calendar any more.', 409);
+  if (to === from) return;
+  if (to < today) throw new UserError('Pick today or a day ahead.');
+  if (to > addDays(today, FARTHEST_DAYS)) throw new UserError('Pick a day in the next eight weeks.');
+  if (to <= tripWindow(addDays(from, -1), schedule).start) throw new UserError('Pick a day after the trip before it.');
+  deps.unitOfWork.run(() => {
+    const store = deps.household.storeFor(from);
+    if (store) deps.household.setStore(to, store);
+    const list = deps.receipts.tripList(from);
+    if (list && !deps.receipts.tripList(to)) deps.receipts.saveTripList(to, list);
+    moveTripPlan(deps, from, to);
+    moveSentToCart(deps, from, to);
+    deps.household.saveShopTrips(withTripMoved(deps.household.shopTrips(), from, to));
+  });
   await replan(deps, today);
 }
 
+/** Moving a trip later opens up days, which the app fills if it plans on grocery mornings. */
 async function replan(deps: Deps, today: ISODate): Promise<void> {
-  await replanAfterChange(deps, today, planHorizonEnd(today, shopSchedule(deps)));
+  const choice = automaticPlanning(deps);
+  if (!plansOnItsOwn(choice)) return;
+  await replanAfterChange(deps, today, tripMorningRuns(choice) ? tripWindow(today, shopSchedule(deps)).end : today);
 }

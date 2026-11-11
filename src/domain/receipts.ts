@@ -26,6 +26,8 @@ export type ReceiptLine = {
   cents: number | null;
   /** The match is a best guess, so it needs a person's eye. */
   unsure: boolean;
+  /** The key of the list line this was bought instead of, so that line counts as bought. */
+  insteadOf?: string | null;
 };
 
 /** A line of the list as it stood going into the store. */
@@ -36,6 +38,8 @@ export type TripLine = {
   store: Store;
   reason: ShoppingReason;
   neededFor: string[];
+  /** How many a counted line wanted. Lists saved before this have none. */
+  quantity?: number | null;
   /** Checked off in the app, which already added this many to a counted item. */
   checkedOff: boolean;
   /** Back to 0 once a receipt has credited it, so a second receipt or line doesn't take it off again. */
@@ -67,9 +71,14 @@ export type TripDiff = {
 };
 
 const same = (line: TripLine, bought: ReceiptLine) =>
-  line.pantryItemId !== null && bought.pantryItemId !== null
+  bought.insteadOf === line.key || (line.pantryItemId !== null && bought.pantryItemId !== null
     ? line.pantryItemId === bought.pantryItemId
-    : nameKey(line.name).join(' ') === nameKey(bought.name).join(' ');
+    : nameKey(line.name).join(' ') === nameKey(bought.name).join(' '));
+
+/** Whether a line off a receipt is one the list had, itself or as what stood in for it. */
+export function onTripList(list: readonly TripLine[], bought: ReceiptLine): boolean {
+  return list.some(line => same(line, bought));
+}
 
 export function tripDiff(list: readonly TripLine[], receipts: readonly Pick<Receipt, 'store' | 'lines'>[]): TripDiff {
   const stores = new Set<string>(receipts.map(r => r.store));
@@ -81,7 +90,7 @@ export function tripDiff(list: readonly TripLine[], receipts: readonly Pick<Rece
     if (matched.length) bought.push({ line, matched });
     else if (stores.has(line.store)) skipped.push(line);
   }
-  return { bought, skipped, extras: lines.filter(l => !list.some(line => same(line, l))) };
+  return { bought, skipped, extras: lines.filter(l => !onTripList(list, l)) };
 }
 
 /** Today's list on top of what was saved: things checked off stay, even though they've left the list. */

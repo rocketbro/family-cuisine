@@ -4,13 +4,16 @@ import { addDays, realDateOrNull, toISODate, type ISODate } from '../../domain/d
 import type { PantryItem, Store } from '../../domain/pantry.ts';
 import {
   afterBuying, checkedOffLine, COUNT_ASSUMED_BOUGHT, creditCheckOff, isSameTripLine, mergeTripList, remainderOfLine,
-  tripDiff, type ReceiptLine, type TripLine,
+  tripDiff, type ReceiptLine, type TripDiff, type TripLine,
 } from '../../domain/receipts.ts';
 import type { ShoppingLine } from '../../domain/shopping.ts';
 import { tripSuggestions } from '../../domain/trip-learning.ts';
 import type { ReceiptSummary, ReceiptView, TripsView } from '../../shared/api-types.ts';
 import type { Deps } from './deps.ts';
 import { addPantryItem, updatePantryItem } from './pantry.ts';
+import { keepNeverAdds, leftOutLines } from './receipt-never-add.ts';
+import { insteadOfLines, type Substitute } from './receipt-substitutes.ts';
+import { standIn } from './stand-ins.ts';
 import { storeFromReceipt } from './stock-up.ts';
 import type { ReceiptRecord, ReceiptUpload } from './ports/receipts.ts';
 import { UserError } from './user-error.ts';
@@ -24,7 +27,7 @@ const DISMISSED = 'dismissed_trip_suggestions';
 /** Saves the list as it stands, so there's something to compare a receipt with later. */
 export function keepTripList(deps: Deps, shopDate: ISODate, lines: readonly ShoppingLine[]): void {
   const current: TripLine[] = lines.map(l => ({
-    key: l.key, name: l.name, pantryItemId: l.pantryItemId, store: l.store, reason: l.reason, neededFor: l.neededFor,
+    key: l.key, name: l.name, pantryItemId: l.pantryItemId, store: l.store, reason: l.reason, neededFor: l.neededFor, quantity: l.quantity,
     checkedOff: false, addedCount: 0,
   }));
   deps.receipts.saveTripList(shopDate, mergeTripList(deps.receipts.tripList(shopDate) ?? [], current));
@@ -92,12 +95,19 @@ function nearestTrip(deps: Deps, date: ISODate): ISODate {
   return deps.receipts.tripDates().filter(within).sort((a, b) => gap(a) - gap(b))[0] ?? date;
 }
 
+type Kept = { index: number; name: string }[];
+
+/** Choices beyond what's kept: lines never to add again, and lines bought instead of something on the list. */
+export type ReceiptDecisions = { neverAdd?: Kept; substitutes?: Substitute[] };
+
 /** What a person decided for each line: their kept lines, under the name they chose. All of it lands with the move to applied, or none of it does. */
-export function applyReceipt(deps: Deps, id: number, kept: { index: number; name: string }[]): void {
+export function applyReceipt(deps: Deps, id: number, kept: Kept, decisions: ReceiptDecisions = {}): void {
   deps.unitOfWork.run(() => {
     const receipt = deps.receipts.get(id);
     if (!receipt || receipt.status !== 'ready') throw new UserError('That receipt has already been saved.', 409);
     const trip = { list: deps.receipts.tripList(receipt.shopDate) };
+    keepNeverAdds(deps, receipt.lines, trip.list ?? [], decisions.neverAdd ?? [], kept);
+    const instead = insteadOfLines(receiptOnTrip(deps, receipt).diff, decisions.substitutes ?? [], kept);
     const lines: ReceiptLine[] = [];
     const store = receipt.store === 'other' ? null : receipt.store;
     for (const { index, name } of kept) {
@@ -106,8 +116,10 @@ export function applyReceipt(deps: Deps, id: number, kept: { index: number; name
       const line = { ...original, name: name.trim() || original.name };
       const item = deps.pantry.findByName(line.name) ?? (line.name === original.name && original.pantryItemId !== null ? deps.pantry.get(original.pantryItemId) : null);
       const stored = stock(deps, item, line, trip, receipt.shopDate);
-      lines.push({ ...line, pantryItemId: stored.id });
+      const replaced = instead.get(index);
+      lines.push({ ...line, pantryItemId: stored.id, ...(replaced ? { insteadOf: replaced.line.key } : {}) });
       rememberPrice(deps, store, stored.id, line);
+      if (replaced && replaced.line.pantryItemId !== stored.id) standIn(deps, stored, replaced.line.name, replaced.always);
     }
     if (trip.list) deps.receipts.saveTripList(receipt.shopDate, trip.list);
     deps.receipts.update(id, { status: 'applied', lines });
@@ -125,10 +137,11 @@ function rememberPrice(deps: Deps, store: Store | null, itemId: number, line: Re
  * An old receipt can teach prices, but what it bought is long gone: the pantry and the week's list
  * stay as they are, it doesn't count as a trip, and the receipt isn't kept. Lines with no pantry item are skipped.
  */
-export function savePricesOnly(deps: Deps, id: number, kept: { index: number; name: string }[]): void {
+export function savePricesOnly(deps: Deps, id: number, kept: Kept, decisions: ReceiptDecisions = {}): void {
   const files = deps.unitOfWork.run(() => {
     const receipt = deps.receipts.get(id);
     if (!receipt || receipt.status !== 'ready') throw new UserError('That receipt has already been saved.', 409);
+    keepNeverAdds(deps, receipt.lines, deps.receipts.tripList(receipt.shopDate) ?? [], decisions.neverAdd ?? [], kept);
     const store = receipt.store === 'other' ? null : receipt.store;
     for (const { index, name } of kept) {
       const line = receipt.lines[index];
@@ -186,18 +199,23 @@ const currentStatus = (r: ReceiptRecord, now: number): Pick<ReceiptRecord, 'stat
 export function receiptView(deps: Deps, id: number): ReceiptView | null {
   const receipt = deps.receipts.get(id);
   if (!receipt) return null;
-  const list = deps.receipts.tripList(receipt.shopDate);
-  const counted = receipt.status === 'applied' ? receipt : null;
-  const onTrip = deps.receipts.list().filter(r => r.shopDate === receipt.shopDate && r.status === 'applied');
-  const compared = counted ? onTrip : [...onTrip, receipt];
+  const { list, diff } = receiptOnTrip(deps, receipt);
   return {
     id, shopDate: receipt.shopDate, store: receipt.store, purchasedOn: receipt.purchasedOn, totalCents: receipt.totalCents, lines: receipt.lines,
     ...currentStatus(receipt, Date.now()),
     files: receipt.files.map((f, i) => ({ url: `/api/receipts/${id}/files/${i}`, type: f.type })),
     listSaved: list !== null,
+    leftOut: receipt.status === 'ready' ? leftOutLines(deps, receipt.lines, list ?? []) : [],
     old: receipt.purchasedOn !== null && receipt.purchasedOn < addDays(toISODate(new Date()), -TRIP_WINDOW_DAYS),
-    diff: tripDiff(list ?? [], compared),
+    diff,
   };
+}
+
+/** The trip's saved list, and how this receipt and the others saved for that trip compare with it. */
+export function receiptOnTrip(deps: Deps, receipt: ReceiptRecord): { list: TripLine[] | null; diff: TripDiff } {
+  const list = deps.receipts.tripList(receipt.shopDate);
+  const onTrip = deps.receipts.list().filter(r => r.shopDate === receipt.shopDate && r.status === 'applied' && r.id !== receipt.id);
+  return { list, diff: tripDiff(list ?? [], [...onTrip, receipt]) };
 }
 
 export function tripsView(deps: Deps, now = new Date()): TripsView {

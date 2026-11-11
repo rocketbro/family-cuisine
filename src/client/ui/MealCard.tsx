@@ -1,17 +1,19 @@
-// One planned meal: what it is and whether you can make it. On a phone, swipe right to mark it
-// done and left to swap it; desktop has the same two as buttons.
+// One planned meal: what it is and whether you can make it. On a phone, swipe left (toward the check) to mark it
+// done, which then asks about that meal, and right to swap it; desktop has the same two as buttons.
 import { ArrowLeftRight, Check } from 'lucide-react';
 import { useState } from 'react';
 import { TabLink } from '../navigation/TabLink.tsx';
 import { usesText } from '../../domain/drafted-meal.ts';
+import { isMovable } from '../../domain/meal-move.ts';
 import { isExtraSlot, slotLabel } from '../../domain/plan-slot.ts';
-import { api } from '../api.ts';
-import { announceChange } from '../data-events.ts';
+import type { CameOffMeal } from '../../domain/came-off.ts';
 import { useToday } from '../hooks/useToday.ts';
-import { useWrite } from '../hooks/useWrite.ts';
 import { multiplierLabel } from '../../domain/scaling.ts';
 import type { PlanEntryView } from '../../shared/views.ts';
+import { useMealDone } from '../screens/checkin/useMealDone.tsx';
+import { CameOffOffer } from './CameOffOffer.tsx';
 import { Problem } from './Common.tsx';
+import { entryTitle } from './entry-title.ts';
 import { NightBeforeNote } from './NightBeforeNote.tsx';
 import { RecipeImage } from './RecipeImage.tsx';
 import { StatusMark } from './StatusMark.tsx';
@@ -20,23 +22,19 @@ import { SwapSheet } from './SwapSheet.tsx';
 
 export function MealCard({ entry, timeNote }: { entry: PlanEntryView; timeNote?: string }) {
   const [swapping, setSwapping] = useState(false);
+  const [cameOff, setCameOff] = useState<CameOffMeal | null>(null);
   const swap = () => setSwapping(true);
-  const done = entry.outcome === 'made' || entry.outcome === 'swapped';
   const today = useToday();
   const canCheck = entry.date <= today;
-  const write = useWrite();
-  const toggleDone = () => write.run(async () => {
-    await api.setMealDone(entry.date, entry.slot, !done);
-    announceChange();
-  });
+  const { done, toggle: toggleDone, write, sheet: doneSheet } = useMealDone(entry);
   return (
     <section className={`section meal ${done ? 'done' : ''}`}>
       <div className="spread" style={{ marginBottom: 10 }}>
         <span className="eyebrow">{slotLabel(entry.slot)}{timeNote ? ` · ${timeNote}` : ''}</span>
         <button className="link-button phone-quiet" onClick={swap}>Swap</button>
       </div>
-      <SwipeRow onSwipeRight={canCheck ? () => { void toggleDone(); } : undefined} onSwipeLeft={swap}
-        rightMark={<Check size={22} strokeWidth={3} />} leftMark={<ArrowLeftRight size={22} />}>
+      <SwipeRow onSwipeLeft={canCheck ? () => { void toggleDone(); } : undefined} onSwipeRight={swap}
+        leftMark={<Check size={22} strokeWidth={3} />} rightMark={<ArrowLeftRight size={22} />}>
         <div className="meal-card">
           <MealBody entry={entry} swap={swap} />
           {canCheck && <DoneCheck slot={entry.slot} done={done} onToggle={toggleDone} />}
@@ -44,13 +42,18 @@ export function MealCard({ entry, timeNote }: { entry: PlanEntryView; timeNote?:
       </SwipeRow>
       <NightBeforeNote entry={entry} />
       {write.problem && <Problem message={write.problem} onRetry={write.retry} />}
+      {doneSheet}
+      {cameOff && <CameOffOffer meal={cameOff} onNext={setCameOff} />}
       {entry.drafted && (
         <div className="small muted" style={{ marginTop: 8 }}>
           {entry.drafted.how && <p style={{ margin: '0 0 4px' }}>{entry.drafted.how}</p>}
           {entry.drafted.uses.length > 0 && <p className="faint" style={{ margin: 0 }}>{entry.kind === 'recipe' ? 'Plus' : 'Uses'} {usesText(entry.drafted.uses)}</p>}
         </div>
       )}
-      {swapping && !isExtraSlot(entry.slot) && <SwapSheet date={entry.date} slot={entry.slot} note={entry.kind === 'note' ? entry.note : null} onClose={() => setSwapping(false)} />}
+      {swapping && !isExtraSlot(entry.slot) && (
+        <SwapSheet date={entry.date} slot={entry.slot} note={entry.kind === 'note' ? entry.note : null}
+          moveTitle={isMovable(entry) ? entryTitle(entry) : null} onCameOff={setCameOff} onClose={() => setSwapping(false)} />
+      )}
     </section>
   );
 }

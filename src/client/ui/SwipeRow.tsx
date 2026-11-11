@@ -10,9 +10,9 @@ const MOST_TRAVEL = 120;
 
 type Props = {
   children: ReactNode;
+  onSwipeRight: () => void;
   /** Left out when there's nothing to do that way. */
-  onSwipeRight?: () => void;
-  onSwipeLeft: () => void;
+  onSwipeLeft?: () => void;
   rightMark: ReactNode;
   leftMark: ReactNode;
 };
@@ -48,7 +48,7 @@ export function SwipeRow({ children, onSwipeRight, onSwipeLeft, rightMark, leftM
       swiping.current = true;
       e.currentTarget.setPointerCapture(e.pointerId);
     }
-    const allowed = dx > 0 && !onSwipeRight ? 0 : Math.sign(dx) * Math.min(Math.abs(dx), MOST_TRAVEL);
+    const allowed = (dx > 0 ? !onSwipeRight : !onSwipeLeft) ? 0 : Math.sign(dx) * Math.min(Math.abs(dx), MOST_TRAVEL);
     travel.current = allowed;
     show(allowed, false);
   };
@@ -59,8 +59,8 @@ export function SwipeRow({ children, onSwipeRight, onSwipeLeft, rightMark, leftM
     swiping.current = false;
     start.current = null;
     show(0, true);
-    if (travel.current >= TRIGGER) onSwipeRight?.();
-    else if (travel.current <= -TRIGGER) onSwipeLeft();
+    if (travel.current >= TRIGGER) onSwipeRight();
+    else if (travel.current <= -TRIGGER) onSwipeLeft?.();
   };
 
   const cancel = () => {

@@ -119,6 +119,15 @@ export function findPantryItem(itemName: string, pantry: readonly PantryItem[]):
   return matches.find(m => m.alsoCalled && m.item.status !== 'out')?.item ?? best.item;
 }
 
+/**
+ * Something in the house that's also called this item's name, so it covers it (basmati rice bought
+ * instead of jasmine). Only a whole name counts, the same as an also-called match that stands in.
+ */
+export function standingIn(item: PantryItem, pantry: readonly PantryItem[]): PantryItem | null {
+  const key = nameKey(item.name).join(' ');
+  return pantry.find(other => other.id !== item.id && other.status !== 'out' && other.alsoCalled.some(name => nameKey(name).join(' ') === key)) ?? null;
+}
+
 export function nextStatus(status: StockStatus): StockStatus {
   return status === 'have' ? 'low' : status === 'low' ? 'out' : 'have';
 }

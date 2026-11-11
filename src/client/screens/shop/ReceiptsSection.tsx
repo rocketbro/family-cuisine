@@ -1,36 +1,19 @@
 // The bottom of the list: add a receipt, see past trips, and what they suggest changing.
 import { Receipt as ReceiptIcon } from 'lucide-react';
-import { useState } from 'react';
 import { shortDate } from '../../../domain/dates.ts';
 import type { ReceiptSummary } from '../../../shared/api-types.ts';
 import { api } from '../../api.ts';
 import { announceChange } from '../../data-events.ts';
 import { useLoad } from '../../hooks/useLoad.ts';
-import { useOpen } from '../../navigation/useTabNav.ts';
 import { TabLink } from '../../navigation/TabLink.tsx';
 import { dollars, STORE_NAME } from './receiptText.ts';
+import { useReceiptUpload } from './useReceiptUpload.ts';
 
 const STATE: Partial<Record<ReceiptSummary['status'], string>> = { reading: 'Reading…', failed: 'Couldn’t read it', ready: 'Ready to check' };
 
 export function ReceiptsSection() {
   const { data, reload } = useLoad('trips', () => api.trips());
-  const open = useOpen();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const upload = async (files: File[]) => {
-    if (!files.length) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const { id } = await api.addReceipt(files);
-      open(`/shop/receipts/${id}`);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { busy, error, setError, upload } = useReceiptUpload();
   const decide = async (key: string, change: (() => Promise<unknown>) | null) => {
     setError(null);
     try {

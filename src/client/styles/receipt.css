@@ -1,0 +1,19 @@
+/* The receipt review. */
+.receipt-line-detail { display: block; margin-top: 4px; }
+.receipt-line.off .field, .receipt-line.off .receipt-line-detail.faint { opacity: 0.5; }
+.receipt-line .link-button { display: block; min-height: 36px; padding: 8px 0 0; }
+.receipt-line .subs-link { margin-top: 0; }
+.left-out p { margin: 0; }
+.not-on-receipt { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 8px; }
+.not-on-receipt .chip { max-width: 100%; min-height: 40px; white-space: normal; text-align: left; font-size: 0.85rem; }
+.not-on-receipt .chip.chosen { border-color: var(--accent); color: var(--accent); }
+.substitute-choice { width: 100%; text-align: left; font: inherit; color: inherit; min-height: 48px; }
+.substitute-choice[aria-pressed='true'] { color: var(--accent); font-weight: 600; }
+.substitute-keep { --gap: var(--space-s); }
+.substitute-keep p { margin: 0; }
+.substitute-keep .button { padding-left: 10px; padding-right: 10px; }
+.plain-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.receipt-foot { --gap: var(--space-s); }
+.receipt-foot .revision-note { margin-bottom: 0; }
+.recipe-suggestion a { color: var(--accent); font-weight: 550; }
+.tell-claude-typed .field { flex: 1; min-width: 0; }

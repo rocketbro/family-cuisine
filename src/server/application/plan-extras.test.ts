@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { blankEntry } from '../../domain/plan.ts';
 import { recipe } from '../../domain/test-fixtures.ts';
 import { checkinView, confirmPlannedMeals, recordMeal, recordPantry } from './checkin.ts';
-import { finishCooking, settleCookedMeal } from './cooking.ts';
+import { settleCookedMeal } from './cooking.ts';
+import { finishCooking } from './test-support/cook-meal.ts';
 import { setMealDone } from './meal-updates.ts';
 import { plannedRecipe, TODAY, transactionalFakes } from './test-support/transactional-fakes.ts';
 
@@ -120,7 +121,7 @@ describe('an extra in cook mode', () => {
     f.deps.household.markCheckin(TODAY, 'meals');
     const { questions } = checkinView(f.deps, TODAY);
     expect(questions.counts.map(q => q.pantryItemId)).not.toContain(eggs.id);
-    expect(questions.needs).toEqual([{ pantryItemId: applesauce.id, name: 'applesauce', usedIn: 'Cake' }]);
+    expect(questions.needs).toEqual([{ pantryItemId: applesauce.id, name: 'applesauce', usedIn: 'Cake', answer: 'fine' }]);
   });
 
   it('leaves a saved cook review to itself at the check-in', () => {

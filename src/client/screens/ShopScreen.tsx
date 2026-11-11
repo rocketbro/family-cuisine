@@ -1,38 +1,52 @@
 // The grocery list for the coming trip: pick the store, check things off as you go. Aldi
 // shows prices and a total against the week's budget; Walmart fills the cart in one tap.
-import { SlidersHorizontal } from 'lucide-react';
+import { Plus, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { shortDate, weekdayName } from '../../domain/dates.ts';
 import type { Store } from '../../domain/pantry.ts';
+import { alreadySent } from '../../domain/walmart.ts';
 import { api } from '../api.ts';
 import { useLoad } from '../hooks/useLoad.ts';
 import { useWrite } from '../hooks/useWrite.ts';
 import { usePreferences } from '../preferences.ts';
 import { Loading, Problem, Segmented } from '../ui/Common.tsx';
-import { copyText } from './shop/lineText.ts';
+import { AddLineSheet } from './shop/AddLineSheet.tsx';
+import { LineSheet } from './shop/LineSheet.tsx';
+import { copyList } from './shop/lineText.ts';
 import { loadShoppingList } from './shop/load-list.ts';
 import { whenLookupFinishes } from './shop/lookup-poll.ts';
 import { newPutAwayToken } from './shop/putAwayToken.ts';
 import { ListViewSheet } from './shop/ListViewSheet.tsx';
 import { ReceiptsSection } from './shop/ReceiptsSection.tsx';
 import { ShopLines } from './shop/ShopLines.tsx';
+import { SkippedLines } from './shop/SkippedLines.tsx';
 import { StockUpSection } from './shop/StockUpSection.tsx';
+import { TicksNote } from './shop/TicksNote.tsx';
+import { TrimSheet } from './shop/TrimSheet.tsx';
 import { TripTotal } from './shop/TripTotal.tsx';
+import { useLineActions } from './shop/useLineActions.ts';
+import { useListRefresh } from './shop/useListRefresh.ts';
+import { useTicks } from './shop/useTicks.ts';
 import { WalmartCartButton } from './shop/WalmartCartButton.tsx';
 
 export function ShopScreen() {
-  const { data: week, error, reload } = useLoad('shopping', loadShoppingList);
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const { data: week, error, reload, refresh } = useLoad('shopping', loadShoppingList);
+  const ticks = useTicks(week?.shopDate ?? null, week?.ticks ?? null);
+  const actions = useLineActions(reload, ticks.forget);
   const [copied, setCopied] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [prefs, updatePrefs] = usePreferences();
   const [viewing, setViewing] = useState(false);
+  const [openLine, setOpenLine] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [trimming, setTrimming] = useState(false);
   // One per put-away, kept until it succeeds: trying again after a lost answer is the same put-away.
   const putAwayToken = useRef('');
   const putting = useWrite();
   const choosing = useWrite();
   const copying = useWrite();
   const lookup = week?.aldiLookup;
+  useListRefresh(refresh);
 
   // With the lookup on, opening the list checks Aldi for anything unpriced or a week old (a few seconds per item).
   useEffect(() => {
@@ -53,19 +67,23 @@ export function ShopScreen() {
   const byStore = (store: Store) => week.lines.filter(l => l.store === store);
   const aldi = byStore('aldi');
   const walmart = byStore('walmart');
-  const toggle = (key: string) => { const next = new Set(checked); if (next.has(key)) next.delete(key); else next.add(key); setChecked(next); };
+  // A tick on a line that's since left the list (it recalculates) isn't anything to put away.
+  const tickedLines = week.lines.filter(l => ticks.checked.has(l.key));
+  const tickedStock = week.stockUp.filter(l => ticks.checked.has(l.key));
+  const tickedCount = tickedLines.length + tickedStock.length;
+  const open = week.lines.find(l => l.key === openLine);
 
   // The boxes stay ticked if it fails, so nothing has to be ticked again.
   const putAway = () => putting.run(async () => {
     putAwayToken.current ||= newPutAwayToken();
-    await api.markBought(week.lines.filter(l => checked.has(l.key)), week.stockUp.filter(l => checked.has(l.key)), putAwayToken.current);
+    await api.markBought(tickedLines, tickedStock, putAwayToken.current);
     putAwayToken.current = '';
-    setChecked(new Set());
+    ticks.forget([...tickedLines, ...tickedStock].map(l => l.key));
     await reload();
   });
   const chooseStore = (store: Store) => choosing.run(async () => { await api.chooseStore(store); await reload(); });
   const copyAldi = () => copying.run(async () => {
-    await navigator.clipboard.writeText(aldi.map(copyText).join('\n')).catch(() => { throw new Error('Couldn’t copy the list.'); });
+    await navigator.clipboard.writeText(copyList(aldi)).catch(() => { throw new Error('Couldn’t copy the list.'); });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   });
@@ -77,7 +95,7 @@ export function ShopScreen() {
         <button className="icon-button" aria-label="What the list shows" onClick={() => setViewing(true)}><SlidersHorizontal size={20} /></button>
       </div>
       <p className="muted italic">
-        {weekdayName(week.shopDate)}’s trip{week.movedFrom ? ` (moved from ${weekdayName(week.movedFrom)})` : ''} · for meals {shortDate(week.shopDate)} – {shortDate(week.through)}
+        {weekdayName(week.shopDate)}’s trip · for meals {shortDate(week.shopDate)} – {shortDate(week.through)}
       </p>
 
       <section className="section">
@@ -87,13 +105,16 @@ export function ShopScreen() {
         {choosing.problem && <Problem message={choosing.problem} onRetry={choosing.retry} />}
       </section>
 
-      {!week.lines.length && <p className="section muted italic">Nothing to buy. The pantry covers the plan.</p>}
+      <TicksNote unsaved={ticks.unsaved} stuck={ticks.stuck} onRetry={ticks.retry} />
+
+      {!week.lines.length && <p className="section muted italic">{week.skipped.length ? 'Nothing left to buy.' : 'Nothing to buy. The pantry covers the plan.'}</p>}
+      {week.lines.length > 0 && <p className="faint small" style={{ margin: '10px 0 0' }}>Tap a name for Have it or Not this trip.</p>}
 
       {aldi.length > 0 && (
         <section className="section">
           <div className="spread"><span className="eyebrow">Aldi</span><button className="link-button" onClick={copyAldi}>{copied ? 'Copied' : 'Copy list'}</button></div>
           {copying.problem && <p className="error">{copying.problem}</p>}
-          <ShopLines lines={aldi} store="aldi" checked={checked} onToggle={toggle} view={prefs.listView} />
+          <ShopLines lines={aldi} store="aldi" checked={ticks.checked} onToggle={ticks.toggle} onOpen={setOpenLine} view={prefs.listView} />
           {aldi.some(l => l.sizeUnknown) && (
             <p className="faint small" style={{ marginTop: 10 }}>
               Don’t know the package size for {aldi.filter(l => l.sizeUnknown).map(l => l.name).join(', ')}, so the total counts one of each and may run low.
@@ -105,7 +126,7 @@ export function ShopScreen() {
       {walmart.length > 0 && (
         <section className="section">
           <span className="eyebrow">Walmart{week.store === 'aldi' ? ' · things Aldi doesn’t carry' : ''}</span>
-          <ShopLines lines={walmart} store="walmart" checked={checked} onToggle={toggle} view={prefs.listView} />
+          <ShopLines lines={walmart} store="walmart" checked={ticks.checked} onToggle={ticks.toggle} onOpen={setOpenLine} view={prefs.listView} />
           {week.walmartUnmatched.length > 0 && (
             <p className="faint small" style={{ marginTop: 10 }}>
               {week.walmartUnmatched.length} still need{week.walmartUnmatched.length === 1 ? 's' : ''} a product: tap Find, open the one you buy, copy its link, then Paste link. It’s remembered after that.
@@ -119,17 +140,23 @@ export function ShopScreen() {
         </section>
       )}
 
-      {week.stockUp.length > 0 && <StockUpSection lines={week.stockUp} spendCents={week.stockTotalCents} checked={checked} onToggle={toggle} />}
+      <button className="button quiet wide section" onClick={() => setAdding(true)}><Plus size={18} /> Add something</button>
+      <SkippedLines lines={week.skipped} actions={actions} />
 
-      {week.lines.length > 0 && <TripTotal week={{ ...week, aldiLookup: lookupError ? 'done' : week.aldiLookup === 'due' ? 'running' : week.aldiLookup }} lookupError={lookupError} />}
+      {week.stockUp.length > 0 && <StockUpSection lines={week.stockUp} spendCents={week.stockTotalCents} checked={ticks.checked} onToggle={key => ticks.toggle(key, !ticks.checked.has(key))} />}
+
+      {week.lines.length > 0 && <TripTotal week={{ ...week, aldiLookup: lookupError ? 'done' : week.aldiLookup === 'due' ? 'running' : week.aldiLookup }} lookupError={lookupError} onTrim={() => setTrimming(true)} />}
 
       {(walmart.length > 0 || week.walmartCartUrl) && <WalmartCartButton key={week.shopDate} week={week} onChange={reload} />}
 
-      {checked.size > 0 && <button className="button wide section" onClick={putAway}>Put away {checked.size} item{checked.size > 1 ? 's' : ''}</button>}
+      {tickedCount > 0 && <button className="button wide section" onClick={putAway}>Put away {tickedCount} item{tickedCount > 1 ? 's' : ''}</button>}
       {putting.problem && <Problem message={putting.problem} onRetry={putting.retry} />}
 
       <ReceiptsSection />
       {viewing && <ListViewSheet view={prefs.listView} onChange={listView => updatePrefs({ listView })} onClose={() => setViewing(false)} />}
+      {open && <LineSheet line={open} inCart={open.store === 'walmart' && alreadySent(open, week.walmartToSend)} actions={actions} onClose={() => setOpenLine(null)} />}
+      {adding && <AddLineSheet store={week.store} reload={reload} onClose={() => setAdding(false)} />}
+      {trimming && <TrimSheet week={week} ticked={ticks.checked} actions={actions} onClose={() => setTrimming(false)} />}
     </div>
   );
 }

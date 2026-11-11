@@ -42,6 +42,8 @@ export const config = {
 
   anthropicApiKey: env.ANTHROPIC_API_KEY || null,
   model: env.CUISINE_MODEL || 'claude-sonnet-5-5',
+  /** Reading and transcribing work: recipe imports, night-before steps and the page fetcher. */
+  fastModel: env.CUISINE_FAST_MODEL || 'claude-haiku-5-5',
   unsplashAccessKey: env.UNSPLASH_ACCESS_KEY || null,
 
   vapidPublicKey: env.VAPID_PUBLIC_KEY || null,
@@ -62,7 +64,6 @@ export const config = {
 
   /** 0 = Sunday. The shopping day here is only the default until someone sets one in Settings. */
   shopWeekday: number('SHOP_WEEKDAY', 3),
-  planWeekday: number('PLAN_WEEKDAY', 0),
   planTime: time('PLAN_TIME', '08:00'),
   checkinTime: time('CHECKIN_TIME', '19:45'),
   /** Only the default: the time set in Settings → Notifications wins. */

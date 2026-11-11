@@ -10,7 +10,7 @@ import { deferred, fakeDeps } from './test-support/full-deps-fake.ts';
 // A plain Tuesday, with the check-in moved out of the way of the evening.
 const today = '2026-11-10';
 const tomorrow = '2026-11-11';
-const schedule: Schedule = { planWeekday: 0, planTime: { hour: 8, minute: 0 }, checkinTime: { hour: 6, minute: 0 } };
+const schedule: Schedule = { planTime: { hour: 8, minute: 0 }, checkinTime: { hour: 6, minute: 0 } };
 const at = (time: string, date = today) => new Date(`${date}T${time}:00`);
 
 // Good for no meal, so the morning's top-up leaves each test's plan as it set it.

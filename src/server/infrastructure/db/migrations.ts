@@ -140,6 +140,28 @@ const STEPS: string[] = [
      substituted TEXT
    );
    CREATE INDEX plan_extras_by_date ON plan_extras (date);`,
+  // Trips become dates chosen one at a time. Past regular trips go on record so history keeps its shape.
+  // What was kept under a moved trip's regular date moves to the day it's really on.
+  `CREATE TABLE shop_trips (date TEXT PRIMARY KEY);
+   WITH RECURSIVE
+     usual(weekday) AS (SELECT CAST(value AS INTEGER) FROM household_settings WHERE key = 'shop_weekday'),
+     earliest(day) AS (SELECT date(COALESCE(MIN(date), date('now', 'localtime')), '-7 days') FROM plan_entries),
+     days(day) AS (
+       SELECT date(earliest.day, '+' || ((usual.weekday - CAST(strftime('%w', earliest.day) AS INTEGER) + 7) % 7) || ' days') FROM earliest, usual
+       UNION ALL SELECT date(day, '+7 days') FROM days WHERE date(day, '+7 days') <= date('now', 'localtime')
+     )
+   INSERT OR IGNORE INTO shop_trips (date)
+     SELECT day FROM days WHERE day <= date('now', 'localtime') AND day NOT IN (SELECT regular FROM trip_moves)
+     UNION SELECT actual FROM trip_moves;
+   UPDATE OR REPLACE household_settings
+     SET value = json_set(value, '$.trip', (SELECT actual FROM trip_moves WHERE 'trip_plan:' || regular = key)),
+         key = 'trip_plan:' || (SELECT actual FROM trip_moves WHERE 'trip_plan:' || regular = key)
+     WHERE key IN (SELECT 'trip_plan:' || regular FROM trip_moves);
+   UPDATE household_settings
+     SET value = json_set(value, '$.shopDate', (SELECT actual FROM trip_moves WHERE regular = json_extract(value, '$.shopDate')))
+     WHERE key = 'walmart_cart_sent' AND json_extract(value, '$.shopDate') IN (SELECT regular FROM trip_moves);
+   DELETE FROM household_settings WHERE key = 'shop_weekday';
+   DROP TABLE trip_moves;`,
 ];
 
 /** `through` stops early, so a test can set up data as an older version would have left it. */

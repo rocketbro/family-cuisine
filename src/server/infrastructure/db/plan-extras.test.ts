@@ -82,8 +82,8 @@ describe('migration 19', () => {
 
   it('runs on a database that’s already there, and not twice', () => {
     const db = atVersion18();
-    migrate(db);
-    migrate(db);
+    migrate(db, 19);
+    migrate(db, 19);
     expect(db.pragma('user_version', { simple: true })).toBe(19);
   });
 });

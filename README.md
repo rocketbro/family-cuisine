@@ -10,22 +10,35 @@ accounts and no plans for either: this is a home project shared so other familie
 ## A short tour
 
 - **Today**: breakfast, lunch and dinner. Until the next shopping trip, the planner only uses meals
-  the pantry already covers, and each night it replaces planned meals the pantry no longer covers.
+  the pantry already covers, and each night it replaces planned meals the pantry no longer covers. Until a shopping trip
+  is recorded, with Put away or a receipt, what was on its list counts as in the house. When a meal does come off,
+  a morning notification and its day say so, with a button to put it back.
   Meals you picked yourself are left alone.
-- **Week**: the week at a glance, filled in once a week through the days the coming trip covers.
+- **Plan**: the days between two grocery runs at a glance, from a trip through the day before the next, so a trip on another day makes
+  a shorter or longer stretch. It's filled in once a week through the days the coming trip covers. **Clear the plan** takes
+  off every meal and extra from today on that hasn't been eaten; past days and anything recorded stay.
+- **Changing your mind**: swap a meal for anything, or move it to another day, where it trades places with what's there.
+  Replace a recipe and it offers to move that one instead of losing it. Leftovers follow what happened: a dinner that was
+  skipped or changed takes its planned leftovers with it, and only dinners you made are offered as leftovers. The check-in asks if any dinner is left, one tap, and
+  the swap sheet and the dice go by the answer.
 - **Extras**: anything else you mean to make on a day, like a birthday cake, on top of its meals.
   Its ingredients go on the list and it comes off the pantry once it's made. The planner never touches them.
-- **Import a meal plan** (Week tab): a photo, typed words or dictation of a plan you already wrote, partial is fine. Claude reads it (it needs a key), you check each meal, which week it means and what it replaces, and nothing saves until you confirm. Then "Fill in the rest" is your choice. It never makes up recipes: a meal with no recipe stays a name.
+- **Import a meal plan** (Plan tab): choose the days you're planning (the next grocery trip's, unless you change them), then a photo, typed words or dictation of a plan you already wrote, partial is fine. Claude reads it (it needs a key) in the order you wrote it, so a Saturday that comes round again is the next Saturday. You flip through it a day to a screen, settle anything that needs deciding, and nothing saves until you confirm. Then "Fill in the rest" is your choice. Reading never makes up recipes: a meal with no recipe stays a name. Turn Claude's ideas off and filling in the rest keeps to recipes in your book, too.
 - **Recipes**: markdown files with a batch multiplier, source credit and photo. Each is good for breakfast, lunch, dinner or Extras (desserts, snacks, sides), and the planner leaves Extras alone. See substitutes when
-  you're short on something, and cook mode keeps the screen on while you tap off steps. With Claude,
+  you're short on something, and Cooking mode keeps the screen on while you tap off steps. With Claude,
   import from a link (if a site blocks it, you can have Claude try, or use screenshots), from cookbook photos or by describing the dish, and change a recipe by saying
   what's different: the edit form fills in, marks what Claude changed, and nothing saves until you do.
 - **Pantry**: have, low or out for most things, with counts where the number matters. Items can carry
   use-by dates and be kept in several forms (fresh, frozen, canned, dried). Moving something to the
   freezer or back keeps the total the same and says what will happen first.
-- **List**: the grocery list for the coming trip, with what's left of the budget. Prices are ones you
-  type or that come from receipts.
-- **Evening check-in**: a notification asks what you ate and what ran out.
+- **List**: the grocery list for the coming trip, in the order you walk the store, with what's left of
+  the budget. Prices are ones you type or that come from receipts. Ticks are saved as you go and shared
+  between phones. Tap a line's name for Have it or Not this trip, add a one-off for this trip, and when
+  the trip is over budget, choose what to skip and watch the total move.
+- **Evening check-in**: a notification asks what you ate and what ran out. Mark each meal Made, Skipped or Something else
+  with a tap, and it asks about earlier days nobody checked in, one tap a day. Checking a meal off on Today (a tap, or a swipe
+  toward the check) marks it made and opens a short sheet: any dinner left, and whether you still have what it used. The
+  notification only goes out if some meal today is unmarked or has a question still open.
 - **The night before**: a recipe can say what has to happen the evening before, like soaking the beans. If it's on tomorrow's plan, the household gets a notification that evening.
 - **With Claude**: talk through the pantry or the day's meals, add a receipt photo and let it update
   the pantry, or roll the dice for a meal from what's in the house.
@@ -57,7 +70,7 @@ Open <http://127.0.0.1:2847>. A new install starts with six starter recipes, an 
 
 1. In **Settings → Who's eating**, say who's eating, how many adult portions a meal should make, and when dinner is.
 2. In **Pantry**, add what you have. Until your first shopping day, only meals the pantry covers get
-   planned, so Today stays empty until then unless you add enough for a recipe and tap **Plan ahead**.
+   planned, so Today stays empty until then unless you add enough for a recipe and tap **Plan the rest of this trip** on **Plan**.
 3. Later days fill in from the recipes straight away, and **List** shows what to buy for them.
 
 `npm run setup` is safe to run again. If you'd rather do it by hand, copy `.env.example` to `.env` and
@@ -117,11 +130,13 @@ The app's Settings screen has this phone's text size, typeface and appearance, t
 these, which opens its own screen:
 
 - **Who's eating**: the family in your words, portions, dinner time, and names.
-- **Shopping**: the next trip, moving just that trip, your usual shopping day, and your ZIP code.
+- **Shopping**: your next shopping day, which then repeats a week later until you pick another, and your ZIP code.
 - **How we cook**: your standing rules for Claude.
 - **Stock up**: what to buy more of when the budget has room, picked from your Pantry.
 - **Claude won't suggest**: meals you've ruled out.
 - **Notifications**: whose phone it is, turning them on, sending a test, and what time the night-before reminder goes out.
+
+Below the rows, **Show tips again** brings back the short first-visit tips each screen shows once on a phone.
 
 Everything else goes in `.env`, and needs a restart. All of it is optional.
 
@@ -129,6 +144,7 @@ Everything else goes in `.env`, and needs a restart. All of it is optional.
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | none | Turns on Claude: planning, imports, dictation, receipts, the dice |
 | `CUISINE_MODEL` | `claude-sonnet-5-5` | Which Claude model to use |
+| `CUISINE_FAST_MODEL` | `claude-haiku-5-5` | The faster model for recipe imports (link, photos, words), night-before steps and fetching blocked pages |
 | `UNSPLASH_ACCESS_KEY` | none | Finds a photo for each recipe |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | none | Notifications. Changing them means turning notifications on again on each phone |
 | `PORT` | `2847` | The server's port |
@@ -141,9 +157,9 @@ Everything else goes in `.env`, and needs a restart. All of it is optional.
 | `CUISINE_DATA_DIR` | see [Your data](#your-data) | Where data lives. `~` and relative paths work. `./data` is ignored by git |
 | `CUISINE_CLIENT_DIR` | `dist` | Which build of the web app to serve |
 | `CUISINE_SERVICE_LABEL` | `local.cuisine` | The LaunchAgent's name on macOS |
-| `SHOP_WEEKDAY` | `3` | First shopping day (0 = Sunday), until someone sets it in Settings → Shopping |
+| `SHOP_WEEKDAY` | `3` | Weekday of the first trip (0 = Sunday), until someone picks a day in Settings → Shopping |
 | `DINNER_TIME` | `6:30 PM` | Dinner time until someone sets it in Settings → Who's eating |
-| `PLAN_WEEKDAY`, `PLAN_TIME` | `0`, `08:00` | When the weekly plan is made and announced |
+| `PLAN_TIME` | `08:00` | When the plan is made and announced on the morning of a grocery run |
 | `CHECKIN_TIME` | `19:45` | When the evening check-in goes out |
 | `NIGHT_BEFORE_TIME` | `17:00` | When the night-before reminder goes out, until someone sets it in Settings → Notifications |
 | `ALDI_PRICE_LOOKUP` | off | See [Aldi and Walmart lookups](#aldi-and-walmart-lookups). `on` turns it on |
@@ -154,7 +170,7 @@ Everything else goes in `.env`, and needs a restart. All of it is optional.
 
 ## Optional features
 
-**Without an Anthropic key**, you still have the recipe book, the pantry, cook mode, the list, typed
+**Without an Anthropic key**, you still have the recipe book, the pantry, cooking mode, the list, typed
 prices and the check-in, and a simple rotation plans meals from your recipes. You add recipes by writing
 them yourself (below) and editing them in the app. Link and photo imports, "describe it", dictation,
 telling Claude what to change in a recipe, receipt reading, the dice, new dishes from Claude and finding
@@ -249,6 +265,18 @@ Receipts can be photos, screenshots or PDFs. iPhone photos can arrive as HEIC, w
 can read. On Linux, Cuisine keeps the file and tells you to add a screenshot or JPEG instead. On iPhone,
 Settings → Camera → Formats → Most Compatible avoids HEIC altogether.
 
+Nothing on a receipt changes the pantry until you tap Save on its review. While you look it over:
+
+- **Never add this**: untick something new (a cleaning pad, say) and choose Never add this. From then on
+  receipts leave it out, matched on its printed name or its name, and the review says how many were left out
+  with a way to add one this time. Settings → Shopping lists them, each with Offer again.
+- **On the list, not on this receipt**: tap a name if the store sent something else instead. Just this time
+  counts the list line as bought and lets what came stand in for it until that runs out; Always fine instead
+  makes it stand in for good. Either way the pantry records what you really bought.
+- **Tell Claude what to change**: say or type it ("never track the sponges; the basmati was instead of
+  jasmine"). Claude changes the rows on screen, with Undo. Anything about a recipe comes back as a link to
+  that recipe's editor, with your words ready to apply there.
+
 ### Sales tax
 
 The list estimates sales tax from your ZIP's state, at the grocery rate. Only North Carolina is filled in
@@ -315,7 +343,7 @@ Your data stays on your server except for these:
 
 | Goes to | What | When |
 | --- | --- | --- |
-| **Anthropic** (if you add a key) | Your household description, kitchen notes, pantry, plan and recipe titles when planning; dictation transcripts; receipts; cookbook photos and the text of pages you import; a recipe you're changing by talking, with your kitchen notes and pantry names; meal plans you import, with kitchen notes and your recipe titles and tags | Each time one of those features runs |
+| **Anthropic** (if you add a key) | Your kitchen notes with every request; your household description, pantry, plan and recipe titles when planning; dictation transcripts; receipts; cookbook photos and the text of pages you import, with your pantry's names; a recipe you're changing by talking, with your kitchen notes and pantry names; meal plans you import, with the days you're planning, kitchen notes and your recipe titles and tags; a receipt you're changing by talking, with its lines, the list lines it's missing, pantry names, recipe titles and kitchen notes | Each time one of those features runs |
 | **Anthropic** (if you add a key) | Each recipe's title, ingredients and steps, with nothing else about your household, to find which ones need something done the night before | Once, when a key is first there; after that only what's left, if a batch failed |
 | **Zippopotam.us** | Your ZIP code | When you save one in Settings → Shopping |
 | **Unsplash** (if you add a key) | Recipe titles, as search terms | When a recipe has no photo |
@@ -325,9 +353,12 @@ Your data stays on your server except for these:
 | **Your browser's push service** (Apple, Google or Mozilla) | Notifications, encrypted | When one goes out |
 | **Recipe sites** | A request for the page | When you import from a link. If a site blocks that and you say to try with Claude, Anthropic's fetcher asks for the page instead |
 
-A page imported from a link goes to Anthropic with only the note you typed for that import: no pantry,
-kitchen notes or household details, because a page can be written to steer the model. Going through your recipes
-for night-before steps works the same way, since some of them came from pages. Speech is
+Every Claude request carries your kitchen notes, labeled as the family's rules, and recipe imports and changes
+also carry your pantry with each item's other names, so ingredients can be matched. A page imported from a
+link goes to Anthropic with those, a recipe with no tools and no household description, and the page's text is
+treated as material that can't override them. The page fetcher, which can reach the web, is the one request
+that carries nothing of yours. Recipe imports, night-before steps and the fetcher run on the faster model
+(`CUISINE_FAST_MODEL`). Speech is
 transcribed on your own server: FluidVoice and Parakeet both run locally. The transcript then
 goes to Anthropic. Pharmacy and health items on receipts are left out of the records, but the image of the
 receipt itself is still sent to Anthropic to be read.

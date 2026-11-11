@@ -31,7 +31,8 @@ export const RecipeDraftSchema = z.object({
     items: z.array(z.object({
       amount: z.string().nullable().describe('As written: "1 1/2", "2-3", "1/4". Null for "to taste".'),
       unit: z.string().nullable().describe('One of: g, kg, oz, lb, ml, l, tsp, tbsp, cup, quart, can, clove, slice, pinch, package. Null when counted ("2 eggs") or anything else; put other measures in the note. "2 (15 oz) cans" is amount 2, unit can, with "15 oz" in the note.'),
-      item: z.string().describe('The plain grocery name, matching an existing pantry name when one fits. No prep words here.'),
+      item: z.string().describe('The plain grocery name as the recipe writes it. No prep words here.'),
+      pantryName: z.string().nullable().describe('Exactly one of the pantry names when this ingredient is that pantry item, going by what it is and the other names listed. Null when none is.'),
       note: z.string().nullable().describe('Prep and qualifiers: "finely chopped", "room temperature", "to taste".'),
       optional: z.boolean(),
     })),
@@ -51,6 +52,10 @@ export const RecipeRevisionSchema = z.object({
   summary: z.string(),
   ingredients: z.array(z.string()).describe('One ingredient line each, in the form\'s order, with its group lines in place.'),
   body: z.string().describe('The steps and notes, as markdown.'),
+  pantryMatches: z.array(z.object({
+    written: z.string().describe('The item exactly as an ingredient line of your answer has it.'),
+    pantryName: z.string().describe('Exactly one of the pantry names.'),
+  })).describe('Each ingredient line that is a pantry item. Lines that match nothing are left out.'),
 });
 
 export const NightBeforeSchema = z.object({
@@ -124,6 +129,23 @@ export const ReceiptSchema = z.object({
   })),
 });
 
+export const ReceiptRevisionSchema = z.object({
+  understood: z.boolean().describe('False only when you can\'t tell what they want changed.'),
+  note: z.string().describe('One short sentence saying what changed, or what you couldn\'t tell.'),
+  lines: z.array(z.object({
+    index: z.number().int().describe('The line\'s index, unchanged.'),
+    name: z.string().describe('What the product is, in plain words. A pantry name exactly when it is the same thing.'),
+    included: z.boolean().describe('False leaves it out of the pantry this time.'),
+    neverAdd: z.boolean().describe('True only when they never want this product added from any receipt, and only on a line with canNeverAdd.'),
+    insteadOf: z.string().nullable().describe('The key of the notOnReceipt line this was bought instead of. Null otherwise.'),
+    always: z.boolean().describe('With insteadOf: true only when they say it is always fine instead. False otherwise.'),
+  })).describe('Every line, with only their change made.'),
+  recipe: z.object({
+    slug: z.string().describe('Exactly one of the recipe slugs given.'),
+    said: z.string().describe('Their words about that recipe, as they said them.'),
+  }).nullable().describe('Only when part of what they said is about how a recipe is made, not about this receipt. Null otherwise.'),
+});
+
 export const MealPlanSchema = z.object({
   meals: z.array(z.object({
     said: z.string().describe('Their words for this meal, as written or said.'),
@@ -135,6 +157,20 @@ export const MealPlanSchema = z.object({
     name: z.string().nullable().describe('For named: the meal in a few plain words. Null otherwise.'),
     confidence: z.enum(['sure', 'likely', 'unsure']).describe('How sure you are of the day, the meal and the match taken together.'),
   })),
+});
+
+export const MealPlanRevisionSchema = z.object({
+  understood: z.boolean().describe('False only when you can\'t tell what they want changed.'),
+  note: z.string().describe('One short sentence saying what changed, or what you couldn\'t tell.'),
+  meals: z.array(z.object({
+    said: z.string().describe('The meal\'s words as given, unchanged. For a new meal, their words.'),
+    date: z.string().nullable().describe('YYYY-MM-DD. Null only for a meal that had none and they didn\'t give one.'),
+    slot: z.enum(['breakfast', 'lunch', 'dinner', 'extra']),
+    kind: z.enum(['recipe', 'named', 'leftovers']),
+    recipeSlug: z.string().nullable().describe('For recipe: exactly one of the slugs in the recipe book. Null otherwise.'),
+    name: z.string().nullable().describe('For named: the meal in a few plain words. Null otherwise.'),
+    confidence: z.enum(['sure', 'likely', 'unsure']),
+  })).describe('The whole plan, with only their change made.'),
 });
 
 export const PantryMealSchema = z.object({

@@ -5,14 +5,17 @@ import type { PackSize } from '../domain/pack-size.ts';
 import type { StockGoal, StockLine, StockStanding } from '../domain/stock-up.ts';
 import type { CarriedMeal, CheckinQuestions } from '../domain/checkin.ts';
 import type { ISODate } from '../domain/dates.ts';
+import type { DinnerLeft } from '../domain/dinner-left.ts';
+import type { AutomaticPlanning } from '../domain/automatic-planning.ts';
 import type { HouseholdProfile } from '../domain/household.ts';
 import type { ClockTime, JobSchedule } from '../domain/job-run.ts';
 import type { PantryChange } from '../domain/pantry-change.ts';
 import type { DraftedMeal, UseAnswer } from '../domain/drafted-meal.ts';
 import type { Store } from '../domain/pantry.ts';
-import type { ImportedMeal } from '../domain/plan-import.ts';
+import type { ImportedMeal, ImportRange } from '../domain/plan-import.ts';
 import type { PlanSlot } from '../domain/plan-slot.ts';
 import type { MealUpdate } from '../domain/plan.ts';
+import type { ReceiptRow } from '../domain/receipt-review.ts';
 import type { Receipt, TripDiff } from '../domain/receipts.ts';
 import type { TripSuggestion } from '../domain/trip-learning.ts';
 import type { MealSlot } from '../domain/recipe.ts';
@@ -31,6 +34,7 @@ export type Status = {
 
 export type HouseholdView = {
   profile: HouseholdProfile; isSetUp: boolean; schedule: JobSchedule & { nightBeforeTime: ClockTime }; lookups: { aldi: boolean; walmart: boolean };
+  automaticPlanning: AutomaticPlanning;
 };
 
 export type MealChoice =
@@ -45,14 +49,19 @@ export type ExtraChoice = Extract<MealChoice, { kind: 'recipe' | 'note' }>;
 /** A list line with what it should cost: Aldi's shelf price, or what Walmart charged last time. */
 export type PricedLine = ShoppingLine & { price: Price | null };
 
+/** What's ticked on a trip's list. `rev` tells a newer answer from an older one. */
+export type TripTicks = { checked: string[]; rev: number };
+
 export type ShoppingWeek = {
   shopDate: ISODate;
   /** The regular day this week's trip was moved from, if it was. */
-  movedFrom: ISODate | null;
   through: ISODate;
   store: Store;
   storeChosen: boolean;
   lines: PricedLine[];
+  /** Left off this trip's list by hand; they don't count towards anything. */
+  skipped: PricedLine[];
+  ticks: TripTicks;
   total: ListTotal;
   /** Estimated sales tax on the total; null when we don't know the rate for the ZIP. */
   tax: ListTax | null;
@@ -74,6 +83,9 @@ export type ShoppingWeek = {
   walmartUnmatched: string[];
 };
 
+/** What checking one meal off still asks: the check-in's questions for just that meal. */
+export type MealQuestions = { questions: CheckinQuestions; anyLeft: { answer: DinnerLeft | null } | null };
+
 export type CheckinView = {
   date: ISODate;
   step: 'meals' | 'pantry' | 'done';
@@ -81,6 +93,10 @@ export type CheckinView = {
   questions: CheckinQuestions;
   /** Earlier meals these answers also cover, because nothing else caught them. */
   carried: CarriedMeal[];
+  /** Earlier days with meals nobody marked, latest first, to ask about before this one. */
+  earlier: { date: ISODate; meals: PlanEntryView[] }[];
+  /** "Any dinner left?": null when there's nothing to ask, and `answer` is what's been said so far. */
+  anyLeft: { answer: DinnerLeft | null } | null;
 };
 
 export type PantryReport = {
@@ -112,7 +128,14 @@ export type Proposal = {
 };
 
 /** What Claude made of a spoken change to a recipe, for the edit form: nothing is saved yet. */
-export type RecipeRevision = { form: RecipeForm; note: string };
+export type RecipeRevision = {
+  form: RecipeForm; note: string;
+  /** Which pantry item each ingredient is. Sent back with Save, so the names the recipe uses become the item's other names. */
+  pantryMatches: { written: string; pantryName: string }[];
+};
+
+/** A receipt under review as Claude changed it, and anything said about a recipe instead, for that recipe. */
+export type ReceiptRevision = { rows: ReceiptRow[]; note: string; recipe: { slug: string; title: string; said: string } | null };
 
 export type CookedMeal = { date: ISODate; slot: PlanSlot };
 
@@ -120,6 +143,8 @@ export type ReceiptView = Pick<Receipt, 'id' | 'shopDate' | 'store' | 'purchased
   files: { url: string; type: string }[];
   /** False when no list was saved for that trip, so there's nothing to compare with. */
   listSaved: boolean;
+  /** Lines of a receipt still to look over that the family never adds, by index. */
+  leftOut: number[];
   /** Bought too long ago to say anything about what's in the house now. */
   old: boolean;
   diff: TripDiff;
@@ -132,8 +157,8 @@ export type PlanImportView =
   | { status: 'none' }
   | { status: 'reading'; id: string }
   | { status: 'failed'; id: string; error: string; canRetry: boolean }
-  | { status: 'ready'; id: string; meals: ImportedMeal[]; weekStart: ISODate }
-  | { status: 'saved'; id: string; saved: number; leftAlone: number };
+  | { status: 'ready'; id: string; meals: ImportedMeal[]; range: ImportRange; claudesIdeas: boolean }
+  | { status: 'saved'; id: string; saved: number; leftAlone: number; claudesIdeas: boolean };
 
 export type SaveMoneyView = { ideas: SwapIdea[] };
 

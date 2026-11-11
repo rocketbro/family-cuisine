@@ -1,4 +1,4 @@
-// The home screen: today's three meals. Also any other day, from the week view.
+// The home screen: today's three meals. Also any other day, from the Plan tab.
 import { useParams } from 'react-router';
 import { TabLink } from '../navigation/TabLink.tsx';
 import { addDays, longDate } from '../../domain/dates.ts';
@@ -7,17 +7,15 @@ import { mealsOnly } from '../../domain/plan-slot.ts';
 import { api } from '../api.ts';
 import { useLoad } from '../hooks/useLoad.ts';
 import { useHour, useMinutes, useToday } from '../hooks/useToday.ts';
-import { useWrite } from '../hooks/useWrite.ts';
-import { Settings } from 'lucide-react';
+import { ClipboardList, Settings } from 'lucide-react';
 import { Loading, Problem } from '../ui/Common.tsx';
 import { ExtrasSection } from '../ui/ExtrasSection.tsx';
 import { MealCard } from '../ui/MealCard.tsx';
+import { MealsOffNote } from '../ui/MealsOffNote.tsx';
 import { TomorrowNote } from '../ui/NightBeforeNote.tsx';
-import { SwipeHint } from '../ui/SwipeHint.tsx';
 
 export function DayScreen() {
   const params = useParams();
-  const write = useWrite();
   const today = useToday();
   const hour = useHour();
   const minutes = useMinutes();
@@ -59,15 +57,15 @@ export function DayScreen() {
 
       {isToday && minutes >= minutesOf(household.schedule.nightBeforeTime) && <TomorrowNote entries={tomorrow} />}
 
+      <MealsOffNote date={date} today={today} />
+
       {meals.length === 0 ? (
         <div className="section stack">
-          <p className="muted">Nothing is planned for this day yet. Until your next shopping day, Cuisine only plans what your pantry already covers, so add what’s in your kitchen under <TabLink to="/pantry">Pantry</TabLink>, then plan ahead. Later days fill in from your recipes, and the list shows what to buy.</p>
-          <button className="button" onClick={() => write.run(async () => { await api.planAhead(); await reload(); })}>Plan ahead</button>
-          {write.problem && <p className="error">{write.problem}</p>}
+          <p className="muted">No meals planned.</p>
+          <TabLink to="/week" tab="week" className="button"><ClipboardList size={18} /> Go to Plan</TabLink>
         </div>
       ) : (
         <div className="meals">
-          <SwipeHint />
           {meals.map(entry => <MealCard key={entry.slot} entry={entry} timeNote={entry.slot === 'dinner' ? status.dinnerTime : undefined} />)}
         </div>
       )}

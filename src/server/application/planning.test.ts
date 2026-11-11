@@ -6,7 +6,7 @@ import { planView } from './plan-view.ts';
 import { setMeal } from './set-meal.ts';
 import { writeUpNote } from './write-up-note.ts';
 import { planAhead, replanAfterChange } from './planning.ts';
-import { setShopWeekday } from './shop-day.ts';
+import { moveTrip } from './shop-day.ts';
 import { pantryItem, recipe } from '../../domain/test-fixtures.ts';
 import { deferred, draft, fakeDeps, planned, type Fakes } from './test-support/full-deps-fake.ts';
 import type { PlannedMeal } from './ports/ai.ts';
@@ -144,7 +144,7 @@ describe('one planning run at a time', () => {
     const planner = holdThePlanner(deps, []);
     const going = planAhead(deps, TODAY, TODAY);
     // Shopping moves from tomorrow to Saturday, so tomorrow's meal now has to come from the house.
-    const moved = setShopWeekday(deps, TODAY, 6);
+    const moved = moveTrip(deps, TODAY, TOMORROW, '2026-11-07');
     await settle();
     expect(deps.plan.get(TOMORROW, 'dinner')).not.toBeNull();
     planner.release();

@@ -1,39 +1,51 @@
 // Looking a receipt over before anything changes: what's on the list, what's unplanned, what's
-// new, and anything the model wasn't sure about. Names can be corrected right here.
+// new, and anything the model wasn't sure about. Names can be corrected right here, something new
+// can be left off for good, Claude can make the changes someone says or types, and nothing is
+// saved until Save.
 import { useState } from 'react';
-import type { ReceiptLine } from '../../../domain/receipts.ts';
-import type { ReceiptView } from '../../../shared/api-types.ts';
+import { bringBack, canNeverAdd, changeRow, choicesToSave, reviewRows, substitute, type ReceiptRow } from '../../../domain/receipt-review.ts';
+import type { ReceiptRevision, ReceiptView } from '../../../shared/api-types.ts';
 import { api } from '../../api.ts';
 import { announceChange } from '../../data-events.ts';
 import { useLoad } from '../../hooks/useLoad.ts';
-import { lineDetail } from './receiptText.ts';
-
-type Numbered = { line: ReceiptLine; index: number };
+import { ClaudeNote } from '../../ui/ClaudeNote.tsx';
+import { TellClaude } from '../../ui/TellClaude.tsx';
+import { LeftOutLines } from './LeftOutLines.tsx';
+import { insteadCandidates, receiptGroups, reviewFacts } from './receipt-groups.ts';
+import { NotOnReceipt } from './NotOnReceipt.tsx';
+import { ReceiptLineRow } from './ReceiptLineRow.tsx';
+import { RecipeSuggestion } from './RecipeSuggestion.tsx';
+import { useReceiptRevision } from './useReceiptRevision.ts';
 
 export function ReceiptReview({ receipt, onSaved, onPricesSaved }: {
   receipt: ReceiptView; onSaved: () => void; onPricesSaved: () => void;
 }) {
   const { data: pantry } = useLoad('pantry', () => api.pantry());
-  const [names, setNames] = useState<Map<number, string>>(new Map());
-  const [skipped, setSkipped] = useState<Set<number>>(new Set());
+  const { data: status } = useLoad('status', () => api.status());
+  const [rows, setRows] = useState<ReceiptRow[]>(() => reviewRows(receipt.lines, receipt.leftOut));
+  const [note, setNote] = useState<{ words: string; undo: ReceiptRow[] } | null>(null);
+  const [recipe, setRecipe] = useState<ReceiptRevision['recipe']>(null);
   const [pricesOnly, setPricesOnly] = useState(receipt.old);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const numbered: Numbered[] = receipt.lines.map((line, index) => ({ line, index }));
-  const planned = new Set(receipt.diff.bought.flatMap(b => b.matched.map(m => m.printed)));
-  const groups: [string, Numbered[]][] = [
-    ['Check these', numbered.filter(n => n.line.unsure)],
-    ['From your list', numbered.filter(n => !n.line.unsure && planned.has(n.line.printed))],
-    ['Not on the list, already in the pantry', numbered.filter(n => !n.line.unsure && !planned.has(n.line.printed) && n.line.pantryItemId !== null)],
-    ['New to the pantry', numbered.filter(n => !n.line.unsure && !planned.has(n.line.printed) && n.line.pantryItemId === null)],
-  ];
+  const facts = reviewFacts(receipt, pantry?.map(p => p.name) ?? []);
+  const listName = (key: string | null) => receipt.diff.skipped.find(l => l.key === key)?.name ?? null;
+  const revision = useReceiptRevision({
+    id: receipt.id, rows, ready: Boolean(status?.ai),
+    onRevised: answer => {
+      setNote({ words: answer.note || 'Done.', undo: rows });
+      setRows(answer.rows);
+      setRecipe(answer.recipe);
+    },
+  });
+  const change = (next: ReceiptRow[]) => { setRows(next); setNote(null); };
 
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
-      await api.applyReceipt(receipt.id, numbered.filter(n => !skipped.has(n.index)).map(n => ({ index: n.index, name: names.get(n.index) ?? n.line.name })), pricesOnly);
+      await api.applyReceipt(receipt.id, choicesToSave(rows), pricesOnly);
       announceChange();
       if (pricesOnly) onPricesSaved(); else onSaved();
     } catch (e) {
@@ -41,7 +53,6 @@ export function ReceiptReview({ receipt, onSaved, onPricesSaved }: {
       setBusy(false);
     }
   };
-  const toggle = (index: number) => { const next = new Set(skipped); if (next.has(index)) next.delete(index); else next.add(index); setSkipped(next); };
 
   return (
     <>
@@ -50,43 +61,48 @@ export function ReceiptReview({ receipt, onSaved, onPricesSaved }: {
         <input type="checkbox" checked={pricesOnly} onChange={e => setPricesOnly(e.target.checked)} />
         <span className="grow">
           <span>Prices only</span>
-          <span className="faint small" style={{ display: 'block' }}>
+          <span className="faint small receipt-line-detail">
             Learn what things cost and leave the pantry and this week’s list alone. Things not in the pantry are skipped, and the receipt isn’t kept.
           </span>
         </span>
       </label>
-      {groups.filter(([, lines]) => lines.length).map(([title, lines]) => (
-        <section className="section" key={title}>
-          <span className="eyebrow">{title}</span>
-          <div className="list">
-            {lines.map(({ line, index }) => (
-              <div className="list-row" key={index} style={{ opacity: skipped.has(index) ? 0.45 : 1 }}>
-                <input type="checkbox" aria-label={`Include ${line.name}`} checked={!skipped.has(index)} onChange={() => toggle(index)} />
-                <span className="grow">
-                  <input
-                    className="field"
-                    list="pantry-names"
-                    aria-label={`What ${line.printed} is`}
-                    value={names.get(index) ?? line.name}
-                    onChange={e => setNames(new Map(names).set(index, e.target.value))}
-                  />
-                  <div className="faint small" style={{ marginTop: 4 }}>{lineDetail(line)}</div>
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-      {receipt.diff.skipped.length > 0 && (
-        <section className="section">
-          <span className="eyebrow">On the list, not on this receipt</span>
-          <p className="muted">{receipt.diff.skipped.map(l => l.name).join(', ')}</p>
-          <p className="faint small">Their records stay as they are.</p>
-        </section>
-      )}
+      <fieldset className="plain-fieldset" disabled={revision.asking}>
+        {receiptGroups(receipt, rows, facts).filter(([, group]) => group.length).map(([title, group]) => (
+          <section className="section" key={title}>
+            <span className="eyebrow">{title}</span>
+            <div className="list">
+              {group.map(row => (
+                <ReceiptLineRow
+                  key={row.index}
+                  row={row}
+                  line={receipt.lines[row.index]}
+                  neverable={canNeverAdd(row, facts)}
+                  insteadOf={listName(row.insteadOf)}
+                  onChange={c => change(changeRow(rows, row.index, c, facts))}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+        <LeftOutLines rows={rows.filter(row => row.leftOut)} onBringBack={index => change(bringBack(rows, index, facts))} />
+      </fieldset>
+      <NotOnReceipt
+        missing={receipt.diff.skipped}
+        rows={rows}
+        candidates={insteadCandidates(receipt, rows, facts)}
+        canSubstitute={!pricesOnly && !revision.asking}
+        onChoose={(key, choice) => change(substitute(rows, key, choice, facts))}
+      />
       {!receipt.listSaved && <p className="faint small section">No list was saved for this trip, so there’s nothing to compare it with.</p>}
-      {error && <p className="error">{error}</p>}
-      <button className="button wide section" disabled={busy} onClick={save}>{busy ? 'Saving…' : pricesOnly ? 'Save prices' : 'Save to the pantry'}</button>
+      <div className="section stack receipt-foot">
+        {recipe && <RecipeSuggestion {...recipe} />}
+        {note && <ClaudeNote words={note.words} onUndo={() => { setRows(note.undo); setNote(null); }} />}
+        {status?.ai && (
+          <TellClaude asking={revision.asking} underway={revision.underway} free={revision.micFree} listen={() => void revision.listen()} type={revision.take} />
+        )}
+        {error && <p className="error">{error}</p>}
+        <button className="button wide" disabled={busy || revision.underway} onClick={save}>{busy ? 'Saving…' : pricesOnly ? 'Save prices' : 'Save to the pantry'}</button>
+      </div>
     </>
   );
 }

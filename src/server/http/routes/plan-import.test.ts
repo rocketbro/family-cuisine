@@ -77,6 +77,37 @@ describe('/api/plan-import', () => {
     expect((await (await app.request('/api/plan-import', { headers })).json() as { status: string }).status).toBe('ready');
   });
 
+  it('takes the range and the choice about Claude’s ideas from the form', async () => {
+    const app = appWith(fakeDeps());
+    const request = send('tacos');
+    request.body.append('from', '2026-11-17');
+    request.body.append('through', '2026-11-23');
+    request.body.append('claudesIdeas', 'off');
+    await app.request('/api/plan-import', request);
+    await settle();
+    expect(await (await app.request('/api/plan-import', { headers })).json()).toMatchObject({
+      status: 'ready', claudesIdeas: false, range: { from: '2026-11-17', through: '2026-11-23' }, meals: [{ date: '2026-11-17' }],
+    });
+  });
+
+  it('turns down a backwards range', async () => {
+    const app = appWith(fakeDeps());
+    const request = send('tacos');
+    request.body.append('from', '2026-11-23');
+    request.body.append('through', '2026-11-17');
+    expect((await app.request('/api/plan-import', request)).status).toBe(400);
+  });
+
+  it('fills in the rest only after a save', async () => {
+    const app = appWith(fakeDeps());
+    const { id } = await (await app.request('/api/plan-import', send('tacos'))).json() as { id: string };
+    await settle();
+    const fill = { method: 'POST', headers };
+    expect((await app.request('/api/plan-import/fill', fill)).status).toBe(409);
+    await app.request(`/api/plan-import/${id}/confirm`, confirm([]));
+    expect((await app.request('/api/plan-import/fill', fill)).status).toBe(200);
+  });
+
   it('can be dropped', async () => {
     const app = appWith(fakeDeps());
     await app.request('/api/plan-import', send('tacos'));

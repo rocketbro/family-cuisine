@@ -1,17 +1,14 @@
-// "What did we eat?" Say it: "yes to the eggs, we had the soup, but dinner was red beans
-// and rice." The planned meals and the recipe book stay on screen to jog your memory.
+// "What did we eat?" Most days it's what was planned, so that's the main button. Each meal can be marked with a tap, or say it:
+// "yes to the eggs, we had the soup, but dinner was red beans and rice." The planned meals and the
+// recipe book stay on screen to jog your memory.
 import { Check, Keyboard, Mic } from 'lucide-react';
 import { useState } from 'react';
 import type { ISODate } from '../../../domain/dates.ts';
-import { usesText } from '../../../domain/drafted-meal.ts';
-import { isExtraSlot, slotLabel, type ExtraSlot } from '../../../domain/plan-slot.ts';
+import { isExtraSlot } from '../../../domain/plan-slot.ts';
 import type { PlanEntryView, RecipeCard } from '../../../shared/views.ts';
-import { api } from '../../api.ts';
-import { announceChange } from '../../data-events.ts';
 import { useDictation } from '../../dictation/useDictation.ts';
-import { useWrite } from '../../hooks/useWrite.ts';
-import { entryTitle } from '../../ui/entry-title.ts';
 import { RecipePicker } from '../../ui/RecipePicker.tsx';
+import { MealRow } from './MealRow.tsx';
 
 type Props = { date: ISODate; meals: PlanEntryView[]; recipes: RecipeCard[]; saving: boolean; onAsPlanned: () => void };
 
@@ -21,39 +18,25 @@ export function MealsStep({ date, meals, recipes, saving, onAsPlanned }: Props) 
   const [text, setText] = useState('');
   const context = { kind: 'checkin' as const, date };
   const label = 'What we ate: scroll the book as you go';
-  const write = useWrite();
   const hasExtras = meals.some(m => isExtraSlot(m.slot) && !m.outcome);
+  const allMarked = meals.every(m => m.outcome);
+  const idle = dictation.phase === 'idle';
+  const speak = () => dictation.start(context, label);
 
   return (
     <div>
       <section className="section">
         <span className="eyebrow">What was planned</span>
         <div className="list">
-          {meals.map(meal => (
-            <div key={meal.slot} className="list-row">
-              <span className="grow">
-                <span className="faint small">{slotLabel(meal.slot)}</span>
-                <div style={{ fontSize: '1.15rem' }}>{entryTitle(meal)}</div>
-                {meal.drafted && meal.drafted.uses.length > 0 && <div className="faint small">{meal.kind === 'recipe' ? 'Plus' : 'Uses'} {usesText(meal.drafted.uses)}</div>}
-              </span>
-              {isExtraSlot(meal.slot) && !meal.outcome && <button className="chip" onClick={() => {
-                const slot = meal.slot as ExtraSlot;
-                void write.run(async () => { await api.removeExtra(date, slot); announceChange(); });
-              }}>Didn’t make it</button>}
-              {meal.outcome && <span className="chip"><Check size={14} />&nbsp;{meal.outcome === 'made' ? 'Made' : meal.outcome === 'swapped' ? 'Swapped' : 'Skipped'}</span>}
-            </div>
-          ))}
+          {meals.map(meal => <MealRow key={meal.slot} date={date} meal={meal} />)}
           {!meals.length && <p className="muted" style={{ margin: '12px 0' }}>Nothing was planned for this day.</p>}
         </div>
-        {meals.length > 0 && (
-          <button className="link-button" style={{ marginTop: 8 }} disabled={saving} onClick={onAsPlanned}>{hasExtras ? 'We ate what was planned, extras too' : 'We ate what was planned'}</button>
+        {meals.length > 0 && idle && !typing && (
+          <div className="row" style={{ marginTop: 8, gap: 16 }}>
+            <button className="link-button" onClick={speak}>Say what you ate instead</button>
+            <button className="link-button" onClick={() => setTyping(true)}>Type it</button>
+          </div>
         )}
-        {write.problem && <p className="error">{write.problem}</p>}
-      </section>
-
-      <section className="section">
-        <span className="eyebrow">In the book</span>
-        <RecipePicker recipes={recipes} />
       </section>
 
       {typing && (
@@ -69,10 +52,21 @@ export function MealsStep({ date, meals, recipes, saving, onAsPlanned }: Props) 
         </form>
       )}
 
-      {dictation.phase === 'idle' && !typing && (
+      <section className="section">
+        <span className="eyebrow">In the book</span>
+        <RecipePicker recipes={recipes} />
+      </section>
+
+      {idle && !typing && (
         <div className="sticky-actions">
-          <button className="button wide" onClick={() => dictation.start(context, label)}><Mic size={18} /> Tell us what we ate</button>
-          <button className="button quiet" aria-label="Type instead" onClick={() => setTyping(true)}><Keyboard size={18} /></button>
+          {meals.length > 0 ? (
+            <button className="button wide" disabled={saving} onClick={onAsPlanned}><Check size={18} /> {allMarked ? 'Continue' : hasExtras ? 'We ate what was planned, extras too' : 'We ate what was planned'}</button>
+          ) : (
+            <>
+              <button className="button wide" onClick={speak}><Mic size={18} /> Say what you ate</button>
+              <button className="button quiet" aria-label="Type instead" onClick={() => setTyping(true)}><Keyboard size={18} /></button>
+            </>
+          )}
         </div>
       )}
     </div>

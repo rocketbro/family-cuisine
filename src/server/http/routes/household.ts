@@ -6,10 +6,11 @@ import { toISODate } from '../../../domain/dates.ts';
 import type { Deps } from '../../application/deps.ts';
 import { householdView, saveHouseholdProfile } from '../../application/household-profile.ts';
 import { kitchenNotes, setKitchenNotes } from '../../application/kitchen-notes.ts';
+import { saveAutomaticPlanning } from '../../application/automatic-planning.ts';
 import { saveNightBeforeTime } from '../../application/night-before-time.ts';
 import { setStockUpList, stockUpList } from '../../application/stock-up.ts';
 import { parseUnit } from '../../../domain/units.ts';
-import { moveNextTrip, setShopWeekday } from '../../application/shop-day.ts';
+import { moveTrip } from '../../application/shop-day.ts';
 import { setStoreZip } from '../../application/store-location.ts';
 import { isoDate, storage } from '../schemas/common.ts';
 import { body } from '../validate.ts';
@@ -44,23 +45,22 @@ export function householdRoutes(deps: Deps) {
       setStockUpList(deps, goals);
       return c.json({ ok: true });
     })
-    .put('/shop-weekday', async c => {
-      const { weekday } = await body(c, z.object({ weekday: z.number().int().min(0).max(6) }));
-      await setShopWeekday(deps, toISODate(new Date()), weekday);
-      return c.json({ ok: true });
-    })
     .put('/night-before-time', async c => {
       const { time } = await body(c, z.object({ time: z.string().max(5) }));
       saveNightBeforeTime(deps, time);
+      return c.json({ ok: true });
+    })
+    .put('/automatic-planning', async c => {
+      saveAutomaticPlanning(deps, await body(c, z.object({ tripMorning: z.boolean(), nightly: z.boolean(), held: z.boolean() })));
       return c.json({ ok: true });
     })
     .put('/zip', async c => {
       const { zip } = await body(c, z.object({ zip: z.string().max(10).nullable() }));
       return c.json({ location: await setStoreZip(deps, zip) });
     })
-    .put('/next-trip', async c => {
-      const { date } = await body(c, z.object({ date: isoDate.nullable() }));
-      await moveNextTrip(deps, toISODate(new Date()), date);
+    .put('/trip', async c => {
+      const { from, to } = await body(c, z.object({ from: isoDate, to: isoDate }));
+      await moveTrip(deps, toISODate(new Date()), from, to);
       return c.json({ ok: true });
     });
 }

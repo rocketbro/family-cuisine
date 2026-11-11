@@ -16,7 +16,8 @@ export const MAX_NEED_QUESTIONS = 5;
 export const CARRY_OVER_DAYS = 7;
 
 export type CountQuestion = { pantryItemId: number; name: string; estimate: number; onHand: number };
-export type NeedQuestion = { pantryItemId: number; name: string; usedIn: string };
+/** `answer` starts where the pantry already stands, so a low item stays low unless someone says otherwise. */
+export type NeedQuestion = { pantryItemId: number; name: string; usedIn: string; answer: 'fine' | 'low' };
 
 /** One thing a drafted meal expected to use, answered ahead of time with what the model expected. */
 export type UseQuestion = { date: ISODate; slot: PlanSlot; pantryItemId: number; name: string; text: string; answer: UseAnswer };
@@ -91,7 +92,7 @@ export function checkinQuestions(
       // Ask first about what was already low, then about what the meal used the most of.
       const weight = (item.status === 'low' ? 100 : 0) + (ingredient.amount ?? 1) * entry.multiplier;
       const existing = needs.get(item.id);
-      if (!existing || existing.weight < weight) needs.set(item.id, { pantryItemId: item.id, name: item.name, usedIn: recipe.title, weight });
+      if (!existing || existing.weight < weight) needs.set(item.id, { pantryItemId: item.id, name: item.name, usedIn: recipe.title, answer: item.status === 'low' ? 'low' : 'fine', weight });
     }
   }
 

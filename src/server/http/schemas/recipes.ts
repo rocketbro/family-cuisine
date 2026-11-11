@@ -14,6 +14,8 @@ export const recipeChanges = z.object({
   summary: z.string().max(5000),
   ingredients: z.string().max(20000),
   body: z.string().max(50000),
+  /** What the last "Tell Claude" answer said the ingredients are in the pantry; checked against the pantry and the saved lines. */
+  pantryMatches: z.array(z.object({ written: z.string().max(200), pantryName: z.string().max(200) })).max(200).optional(),
 });
 
 /** What someone said about a recipe, and the editor's contents as they stand: typed text, so not yet a valid recipe. */

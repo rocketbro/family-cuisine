@@ -13,11 +13,23 @@ import { newDishes, validPlan } from './model-plan.ts';
 import { nightBeforeCheck } from './night-before-check.ts';
 import { pantryForPlanning } from './pantry-for-planning.ts';
 import { plannerContext } from './planner-context.ts';
+import type { PlannerContext } from './ports/ai.ts';
+
+export type PlanOptions = {
+  /** Only recipes in the book, kept picks included: no new dishes, no unkept picks, no meals the model just names. */
+  bookOnly?: boolean;
+};
+
+/** History still names every dish it had, so only the choices narrow. */
+function fromTheBook(context: PlannerContext): PlannerContext {
+  return { ...context, recipes: context.recipes.filter(r => !r.claudesPick), onlyFromTheBook: true };
+}
 
 /** Only `planning.ts` calls this, which keeps it to one run at a time. */
-export async function fillPlan(deps: Deps, from: ISODate, through: ISODate): Promise<number> {
-  const recipes = deps.recipes.list();
-  if (!recipes.length && !deps.ai.available()) return 0;
+export async function fillPlan(deps: Deps, from: ISODate, through: ISODate, { bookOnly = false }: PlanOptions = {}): Promise<number> {
+  const all = deps.recipes.list();
+  const recipes = bookOnly ? all.filter(r => !r.claudesPick) : all;
+  if (!recipes.length && (bookOnly || !deps.ai.available())) return 0;
   const history = deps.plan.range(addDays(from, -deps.settings.historyDays), addDays(from, -1));
   const existing = deps.plan.range(from, through);
   const taken = new Set(existing.map(entryKey));
@@ -27,7 +39,10 @@ export async function fillPlan(deps: Deps, from: ISODate, through: ISODate): Pro
   let proposed: PlanEntry[] = [];
   if (deps.ai.available()) {
     try {
-      const meals = await deps.ai.planMeals(plannerContext(deps, recipes, dates, history, existing));
+      const context = plannerContext(deps, all, dates, history, existing);
+      const answer = await deps.ai.planMeals(bookOnly ? fromTheBook(context) : context);
+      // The model was told, but this is what holds it to that.
+      const meals = bookOnly ? answer.filter(meal => meal.kind === 'recipe' || meal.kind === 'leftovers') : answer;
       const chosen = validPlan(deps, meals, recipes, new Set(dates), taken);
       proposed = [...chosen, ...await newDishes(deps, meals, new Set(dates), new Set([...taken, ...chosen.map(entryKey)]))];
     } catch (error) {

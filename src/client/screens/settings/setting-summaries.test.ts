@@ -10,9 +10,8 @@ describe('what a settings row says', () => {
     expect(householdSummary({ ...profile, portions: 1 }, true)).toBe('1 portion · dinner 6:30 PM');
   });
 
-  it('gives the usual day and the next trip, which can differ', () => {
-    const moved = { weekday: 3, moved: { '2026-11-04': '2026-11-06' } };
-    expect(shoppingSummary('2026-11-02', moved)).toBe('Wednesdays · next trip Fri, Nov 6');
+  it('gives the next trip', () => {
+    expect(shoppingSummary('2026-11-02', { trips: ['2026-11-06'] })).toBe('Next trip Fri, Nov 6');
   });
 
   it('shows the first line of the kitchen notes', () => {

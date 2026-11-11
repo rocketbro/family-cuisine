@@ -3,7 +3,7 @@ import { rotationPlan } from './rotation-planner.ts';
 import { beforeGroceries, planHorizonEnd, type ShopSchedule } from './shop-schedule.ts';
 import { recipe } from './test-fixtures.ts';
 
-const WED: ShopSchedule = { weekday: 3, moved: {} };
+const WED: ShopSchedule = { trips: ['2026-11-04'] };
 
 describe('planning', () => {
   it('reaches through the week after the next Wednesday trip', () => {

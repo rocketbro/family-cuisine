@@ -11,7 +11,7 @@ const form: RecipeForm = {
 };
 const answer: SaidRevision = {
   understood: true, note: ' Doubled the garlic. ', title: 'Soup', meals: ['dinner'], serves: 4, time: '1 hr', nightBefore: null, summary: 'A soup.',
-  ingredients: ['6 cloves garlic', '1 cup milk'], body: '## Steps\n1. Add the milk.',
+  ingredients: ['6 cloves garlic', '1 cup milk'], body: '## Steps\n1. Add the milk.', pantryMatches: [{ written: 'milk', pantryName: 'milk' }],
 };
 
 function setup(said: SaidRevision = answer, { available = true, exists = true } = {}) {
@@ -20,7 +20,7 @@ function setup(said: SaidRevision = answer, { available = true, exists = true } 
   const deps = {
     ai: { available: () => available, reviseRecipe: ask },
     recipes: { get: () => (exists ? { slug: 'soup', title: 'The saved title', ingredients: [] } : null), update },
-    pantry: { list: () => [{ name: 'milk' }, { name: 'garlic' }] },
+    pantry: { list: () => [{ name: 'milk', alsoCalled: ['dairy'] }, { name: 'garlic', alsoCalled: [] }] },
     log: vi.fn(),
   } as unknown as Deps;
   return { deps, ask, update };
@@ -33,6 +33,7 @@ describe('reviseRecipe', () => {
     const { deps } = setup();
     await expect(reviseRecipe(deps, 'soup', { said: 'double the garlic', form })).resolves.toEqual({
       note: 'Doubled the garlic.',
+      pantryMatches: [{ written: 'milk', pantryName: 'milk' }],
       form: { ...form, time: '1 hr', ingredients: '6 cloves garlic\n1 cup milk', body: '## Steps\n1. Add the milk.' },
     });
   });
@@ -41,7 +42,7 @@ describe('reviseRecipe', () => {
     const { deps, ask } = setup();
     const typed = { ...form, title: 'Typed by hand', ingredients: '3 cloves garlic\n1 cup cream\na good pinch of love' };
     await reviseRecipe(deps, 'soup', { said: ' double the garlic ', form: typed });
-    expect(ask).toHaveBeenCalledWith({ said: 'double the garlic', form: typed, pantryNames: ['milk', 'garlic'] });
+    expect(ask).toHaveBeenCalledWith({ said: 'double the garlic', form: typed, pantry: [{ name: 'milk', alsoCalled: ['dairy'] }, { name: 'garlic', alsoCalled: [] }] });
   });
 
   it('saves nothing', async () => {

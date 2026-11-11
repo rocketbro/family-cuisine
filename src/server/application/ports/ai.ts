@@ -3,9 +3,11 @@ import type { ISODate } from '../../../domain/dates.ts';
 import type { DraftedMeal, SaidUse } from '../../../domain/drafted-meal.ts';
 import type { PantryChange } from '../../../domain/pantry-change.ts';
 import type { PantryItem, StockStatus } from '../../../domain/pantry.ts';
+
 import type { PlanSlot } from '../../../domain/plan-slot.ts';
 import type { MealUpdate } from '../../../domain/plan.ts';
 import type { PortionChange } from '../../../domain/portions.ts';
+import type { SaidRow } from '../../../domain/receipt-review.ts';
 import type { ReceiptLine, ReceiptStore } from '../../../domain/receipts.ts';
 import type { MealSlot, RecipeKind } from '../../../domain/recipe.ts';
 import type { RecipeForm } from '../../../domain/recipe-form.ts';
@@ -17,15 +19,17 @@ export type AiPort = {
   available(): boolean;
   planMeals(context: PlannerContext): Promise<PlannedMeal[]>;
   /** `notes` is how the family actually makes it, typed or said at import; it wins over the source. */
-  recipeFromImages(images: { mediaType: 'image/jpeg'; data: string }[], pantryNames: string[], notes: string | null): Promise<RecipeDraft>;
-  /** The page is untrusted, so this takes nothing private beyond the family's notes for this import. */
-  recipeFromPage(page: { url: string; siteName: string; content: string }, notes: string | null): Promise<RecipeDraft>;
-  /** Writes a recipe from a description: what someone said or typed, or a dish Claude came up with. */
-  recipeFromDescription(description: string, pantryNames: string[]): Promise<RecipeDraft>;
+  recipeFromImages(images: { mediaType: 'image/jpeg'; data: string }[], pantry: PantryRef[], notes: string | null): Promise<RecipeDraft>;
+  /** The page is untrusted text: it gets the family's rules and the pantry to match against, but never counts as an instruction. */
+  recipeFromPage(page: { url: string; siteName: string; content: string }, pantry: PantryRef[], notes: string | null): Promise<RecipeDraft>;
+  /** Writes a recipe from a description: what someone said or typed, or with `invented` a dish Claude came up with, which takes the main model. */
+  recipeFromDescription(description: string, pantry: PantryRef[], options?: { invented?: boolean }): Promise<RecipeDraft>;
   /** Turns something said or typed into pantry and meal changes. */
   interpret(request: InterpretRequest): Promise<Interpretation>;
   /** Reads a receipt, matching what's on it to the pantry. Prices come only from what's printed. */
   readReceipt(files: ModelFile[], context: ReceiptContext): Promise<ReadReceipt>;
+  /** Changes a receipt under review as someone asked. The receipt and what they said are data. */
+  reviseReceipt(request: ReceiptRevisionRequest): Promise<SaidReceiptRevision>;
   /** Puts together one meal from what's in the house. */
   draftMeal(context: PantryMealContext): Promise<SaidDraft>;
   /** Applies what someone said to a recipe form's contents, keeping everything else. */
@@ -33,6 +37,8 @@ export type AiPort = {
   /** Finds which of these recipes truly need something done the evening before, and what. The rest aren't in the answer. */
   nightBeforeSteps(recipes: NightBeforeQuestion[]): Promise<SaidNightBefore[]>;
   /** Reads a meal plan someone wrote out. Its text is data, and nothing it says is an instruction. */
+  /** Changes a plan under review as someone asked. What it holds and what they said are data. */
+  revisePlan(request: PlanRevisionRequest): Promise<SaidPlanRevision>;
   readMealPlan(plan: { text: string | null; images: { mediaType: 'image/jpeg'; data: string }[] }, context: PlanReadContext): Promise<SaidPlanMeal[]>;
 };
 
@@ -40,10 +46,15 @@ export type NightBeforeQuestion = { slug: string; title: string; ingredients: st
 
 export type SaidNightBefore = { slug: string; step: string };
 
-export type RevisionRequest = { said: string; form: RecipeForm; pantryNames: string[] };
+/** A pantry item as a recipe import sees it: its name and the other names it goes by. */
+export type PantryRef = Pick<PantryItem, 'name' | 'alsoCalled'>;
+
+export type RevisionRequest = { said: string; form: RecipeForm; pantry: PantryRef[] };
 
 export type PlannerContext = {
   dates: ISODate[];
+  /** Only the catalog this time: no new dishes and no named meals. */
+  onlyFromTheBook?: boolean;
   /** The season of each date to plan, for recipes that list seasons. */
   seasonOfDate: Record<ISODate, Season>;
   /** Dates before the next shopping trip: only recipes marked ready may go on these. */
@@ -74,6 +85,8 @@ export type PlannedMeal = {
 
 export type PlanReadContext = {
   today: ISODate;
+  /** The days they say they're planning. */
+  range: { from: ISODate; through: ISODate };
   /** The recipe book, to match meals against. */
   recipes: { slug: string; title: string; tags: string[] }[];
 };
@@ -83,6 +96,21 @@ export type SaidPlanMeal = {
   said: string; weekday: string | null; date: string | null; slot: MealSlot | 'extra';
   kind: 'recipe' | 'named' | 'leftovers'; recipeSlug: string | null; name: string | null;
   confidence: 'sure' | 'likely' | 'unsure';
+};
+
+export type PlanRevisionRequest = {
+  said: string;
+  /** The day on their screen; null for the page of meals with no day. */
+  onDate: ISODate | null;
+  meals: { said: string; date: ISODate | null; slot: MealSlot | 'extra'; kind: 'recipe' | 'named' | 'leftovers'; recipeSlug: string | null; name: string | null; confidence: 'sure' | 'likely' | 'unsure' }[];
+  today: ISODate;
+  recipes: { slug: string; title: string; tags: string[] }[];
+};
+
+export type SaidPlanRevision = {
+  understood: boolean;
+  note: string;
+  meals: (Omit<SaidPlanMeal, 'weekday'>)[];
 };
 
 export type PantryMealContext = {
@@ -98,6 +126,8 @@ export type PantryMealContext = {
   /** Recipes that fit this meal and season and are ready to cook from the pantry. */
   recipes: { slug: string; title: string; time: string | null; serves: number; ingredients: string[] }[];
   recentMeals: { date: ISODate; slot: MealSlot; title: string }[];
+  /** Recent dinners they said there's still some of in the fridge. */
+  leftovers: { date: ISODate; title: string }[];
   /** Already planned ahead: leave them what they need. */
   upcoming: { date: ISODate; title: string; needs: string[] }[];
   /** Earlier rolls they passed on. */
@@ -122,6 +152,30 @@ export type ReadReceipt = {
   purchasedOn: string | null;
   totalCents: number | null;
   lines: (Omit<ReceiptLine, 'pantryItemId'> & { pantryName: string | null })[];
+};
+
+export type ReceiptRevisionRequest = {
+  said: string;
+  /** Every line as it stands on their screen. */
+  lines: {
+    index: number; printed: string; name: string; included: boolean; neverAdd: boolean;
+    /** Only a line matched to nothing, on the list or in the pantry, can be never added. */
+    canNeverAdd: boolean;
+    onList: boolean; insteadOf: string | null; always: boolean;
+  }[];
+  /** List lines this receipt doesn't have, which a line can stand in for. */
+  notOnReceipt: { key: string; name: string }[];
+  pantryNames: string[];
+  /** The recipe book, for something said about a recipe rather than the receipt. */
+  recipes: { slug: string; title: string }[];
+};
+
+export type SaidReceiptRevision = {
+  understood: boolean;
+  note: string;
+  lines: SaidRow[];
+  /** What they said about a recipe, for that recipe's own "Tell Claude". */
+  recipe: { slug: string; said: string } | null;
 };
 
 export type InterpretRequest = {

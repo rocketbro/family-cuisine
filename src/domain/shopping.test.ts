@@ -32,6 +32,17 @@ describe('shopping and check-in: the list', () => {
     expect(list.find(l => l.name === 'jelly')?.reason).toBe('needed');
     expect(list.find(l => l.name === 'capers')).toBeUndefined();
   });
+  it('leaves off something stood in for by what’s in the house, until that runs out', () => {
+    const rice = recipe('rice', ['- 2 cups jasmine rice']);
+    const plan = [meal('2026-11-05', 'dinner', 'rice')];
+    const jasmine = pantryItem(1, 'jasmine rice', { status: 'out' });
+    const basmati = pantryItem(2, 'basmati rice', { occasional: true, alsoCalled: ['Jasmine Rice'] });
+    const list = (stock: typeof pantry) => buildShoppingList({ entries: plan, recipes: new Map([['rice', rice]]), pantry: stock, weekStore: 'walmart', from: '2026-11-04', to: '2026-11-10' });
+    expect(list([jasmine, basmati])).toEqual([]);
+    expect(list([jasmine, { ...basmati, status: 'out' }]).map(l => [l.name, l.reason])).toEqual([['jasmine rice', 'needed']]);
+    expect(buildShoppingList({ entries: [], recipes, pantry: [jasmine, basmati], weekStore: 'walmart', from: '2026-11-04', to: '2026-11-10' })).toEqual([]);
+    expect(buildShoppingList({ entries: [], recipes, pantry: [jasmine, { ...basmati, alsoCalled: ['jasmine'] }], weekStore: 'walmart', from: '2026-11-04', to: '2026-11-10' }).map(l => l.name)).toEqual(['jasmine rice']);
+  });
   it('carries the Walmart cart quantity onto the line', () => {
     const stock = [pantryItem(1, 'bananas', { status: 'low', walmartItemId: '44390948', minPackages: 5 })];
     const list = buildShoppingList({ entries: [], recipes, pantry: stock, weekStore: 'walmart', from: '2026-11-04', to: '2026-11-10' });

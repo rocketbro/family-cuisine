@@ -30,11 +30,11 @@ export function ItemDetailsSheet({ item, onClose, onChange, onRemove, problem }:
           <span className="eyebrow">Going on the list</span>
           <Toggle
             label="Keep stocked" on={!item.occasional} disabled={item.staple} onToggle={() => void onChange({ occasional: !item.occasional })}
-            says={item.staple ? 'Always on hand comes first, so this does nothing.' : item.occasional ? 'Goes on the list only when a recipe needs it.' : 'When it’s low or out, it goes on the list by itself.'}
+            says="When it’s low or out, it goes on the list by itself."
           />
           <Toggle
             label="Always on hand" on={item.staple} onToggle={() => void onChange({ staple: !item.staple })}
-            says={item.staple ? 'Treated like salt: never asked about, never on the list.' : 'For things like salt and water, which never run out.'}
+            says="Like salt: never asked about, never on the list."
           />
         </section>
 

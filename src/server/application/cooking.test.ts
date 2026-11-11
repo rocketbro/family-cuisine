@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ListenContext, ProposedChange } from '../../shared/api-types.ts';
 import { checkinView, recordMeal, recordPantry } from './checkin.ts';
-import { finishCooking } from './cooking.ts';
 import { applyProposal, listen } from './listen.ts';
 import { recipe } from '../../domain/test-fixtures.ts';
+import { finishCooking } from './test-support/cook-meal.ts';
 import { failOnce, plannedRecipe, TODAY, transactionalFakes } from './test-support/transactional-fakes.ts';
 
 const cooked = (slug = 'omelet', factor = 1): ListenContext => ({ kind: 'cooked', date: TODAY, slot: 'dinner', slug, factor });
@@ -19,12 +19,7 @@ function cookedDinner() {
   return { f, eggs, ham };
 }
 
-describe('finishing cooking', () => {
-  it('records the meal, but leaves the pantry for later', () => {
-    const { f } = cookedDinner();
-    expect(f.entry(TODAY, 'dinner')).toMatchObject({ outcome: 'made', multiplier: 2, pantrySettled: false });
-  });
-
+describe('a cooked meal and its review', () => {
   it('leaves the meal for the check-in when no changes were saved', () => {
     const { f, eggs, ham } = cookedDinner();
     const { questions } = checkinView(f.deps, TODAY);

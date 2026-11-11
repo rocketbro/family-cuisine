@@ -1,6 +1,7 @@
 // What each row on the Settings screen says is set there, in a few words.
-import { WEEKDAYS, shortDate, weekdayName, type ISODate } from '../../../domain/dates.ts';
+import { weekdayDate, type ISODate } from '../../../domain/dates.ts';
 import { nextTrip, type ShopSchedule } from '../../../domain/shop-schedule.ts';
+import type { AutomaticPlanning } from '../../../domain/automatic-planning.ts';
 import type { HouseholdProfile } from '../../../domain/household.ts';
 
 export function householdSummary(profile: HouseholdProfile, isSetUp: boolean): string {
@@ -10,8 +11,14 @@ export function householdSummary(profile: HouseholdProfile, isSetUp: boolean): s
 }
 
 export function shoppingSummary(today: ISODate, schedule: ShopSchedule): string {
-  const trip = nextTrip(today, schedule);
-  return `${WEEKDAYS[schedule.weekday]}s · next trip ${weekdayName(trip).slice(0, 3)}, ${shortDate(trip)}`;
+  return `Next trip ${weekdayDate(nextTrip(today, schedule))}`;
+}
+
+export function planningSummary({ tripMorning, nightly, held }: AutomaticPlanning): string {
+  if (held) return 'Paused';
+  if (tripMorning && nightly) return 'Grocery mornings and nightly';
+  if (tripMorning) return 'Grocery mornings';
+  return nightly ? 'Nightly' : 'Only when you ask';
 }
 
 export function cookingSummary(notes: string): string {

@@ -2,6 +2,7 @@
 import { cleanHousehold, householdIsSetUp, readHousehold, type HouseholdProfile } from '../../domain/household.ts';
 import { portionsMultiplier } from '../../domain/plan.ts';
 import type { HouseholdView } from '../../shared/api-types.ts';
+import { automaticPlanning } from './automatic-planning.ts';
 import type { Deps } from './deps.ts';
 import { nightBeforeTime } from './night-before-time.ts';
 
@@ -29,5 +30,6 @@ export function householdView(deps: Pick<Deps, 'household' | 'settings' | 'store
     isSetUp: householdIsSetUp(profile),
     schedule: { ...deps.settings.schedule, nightBeforeTime: nightBeforeTime(deps) },
     lookups: { aldi: deps.storePrices !== null, walmart: deps.walmartProducts !== null },
+    automaticPlanning: automaticPlanning(deps),
   };
 }

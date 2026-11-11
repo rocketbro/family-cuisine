@@ -1,8 +1,8 @@
-// One recipe, set at the size it's planned for. "Cook this" turns the page into a working
-// copy: tap things off as you go, then "Done making this" records the meal.
+// One recipe, set at the size it's planned for. "Cooking mode" turns the page into a working
+// copy that stays awake: tap things off as you go, and "Done" leaves it. Nothing is recorded.
 import { CalendarPlus, ChefHat, Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { useLocation, useParams, useSearchParams } from 'react-router';
 import { shortDate, weekdayName } from '../../domain/dates.ts';
 import { isPlanSlot } from '../../domain/plan-slot.ts';
 import { MULTIPLIERS, multiplierLabel } from '../../domain/scaling.ts';
@@ -15,7 +15,6 @@ import { useWakeLock } from '../hooks/useWakeLock.ts';
 import { Loading, Problem, Segmented } from '../ui/Common.tsx';
 import { Markdown } from '../ui/Markdown.tsx';
 import { describe } from '../ui/availability-words.ts';
-import { DoneSheet } from './recipe/DoneSheet.tsx';
 import { EditSheet } from './recipe/EditSheet.tsx';
 import { IngredientList } from './recipe/IngredientList.tsx';
 import { NightBeforeLine } from './recipe/NightBeforeLine.tsx';
@@ -28,7 +27,10 @@ import type { RecipeDetail } from '../../shared/views.ts';
 
 export function RecipeScreen() {
   const { slug = '' } = useParams();
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
+  const location = useLocation();
+  // Words about this recipe said on a receipt's review, ready for its "Tell Claude".
+  const carried = search.get('tell');
   const slotParam = search.get('slot') ?? '';
   const planned = search.get('date') && isPlanSlot(slotParam) ? { date: search.get('date')!, slot: slotParam } : null;
   const { factor, change: changeFactor, problem: batchProblem, retry: retryBatch } = useBatchSize(Number(search.get('x')) || 1, planned);
@@ -36,7 +38,15 @@ export function RecipeScreen() {
   const subs = encodeSubstitutions(cook.substituted);
   const { data: recipe, error, reload } = useLoad(`recipe:${slug}:${factor}:${subs}`, () => api.recipe(slug, factor, cook.substituted));
   const { data: status } = useLoad('status', () => api.status());
-  const [sheet, setSheet] = useState<'plan' | 'done' | 'subs' | 'edit' | null>(null);
+  const [sheet, setSheet] = useState<'plan' | 'subs' | 'edit' | null>(carried ? 'edit' : null);
+  const closeEdit = () => {
+    setSheet(null);
+    if (!carried) return;
+    // Once seen, the words don't come back with a reload; back still knows where to go.
+    const rest = new URLSearchParams(search);
+    rest.delete('tell');
+    setSearch(rest, { replace: true, state: location.state });
+  };
   const [plannedFor, setPlannedFor] = useState<string | null>(null);
   useWakeLock(cook.cooking);
   useEffect(() => {
@@ -51,6 +61,7 @@ export function RecipeScreen() {
 
   return (
     <div className={`page wide recipe ${cook.cooking ? 'cooking' : ''}`}>
+      {cook.cooking && <div className="cooking-bar"><button className="button small" onClick={cook.end}>Done</button></div>}
       <div className="recipe-layout">
         <header className="recipe-intro">
           <Portrait slug={slug} title={recipe.title} image={recipe.image} canSearch={Boolean(status?.images)} editable={!cook.cooking} onChanged={reload} />
@@ -74,7 +85,7 @@ export function RecipeScreen() {
               {recipe.claudesPick && <PickNotice slug={slug} title={recipe.title} onKept={reload} />}
               {recipe.summary && <p className="summary">{recipe.summary}</p>}
               <div className="row recipe-actions">
-                <button className="button grow" onClick={cook.start}><ChefHat size={18} /> Cook this</button>
+                <button className="button grow" onClick={cook.start}><ChefHat size={18} /> Cooking mode</button>
                 <button className="button quiet grow" onClick={() => setSheet('plan')}><CalendarPlus size={18} /> Plan this</button>
               </div>
               {plannedFor && <p className="muted small" role="status" style={{ marginTop: 8 }}>{plannedFor}</p>}
@@ -100,13 +111,6 @@ export function RecipeScreen() {
         </div>
       </div>
 
-      {cook.cooking && (
-        <div className="sticky-actions">
-          <button className="button quiet" onClick={cook.end}>Cancel</button>
-          <button className="button grow" onClick={() => setSheet('done')}>Done making this</button>
-        </div>
-      )}
-
       {sheet === 'plan' && <PlanSheet
         slug={slug}
         meals={recipe.meals}
@@ -114,13 +118,9 @@ export function RecipeScreen() {
         onClose={() => setSheet(null)}
         onPlanned={(date, slot) => { setSheet(null); setPlannedFor(`On the plan ${slot === 'extra' ? 'as an extra' : `for ${slot}`}, ${weekdayName(date)} ${shortDate(date)}.`); }}
       />}
-      {sheet === 'edit' && <EditSheet slug={slug} onClose={() => setSheet(null)} />}
+      {sheet === 'edit' && <EditSheet slug={slug} carried={carried} onClose={closeEdit} />}
       {sheet === 'subs' && (
         <SubstitutesSheet recipe={recipe} factor={factor} onClose={() => setSheet(null)} onApply={chosen => { cook.setSubstituted(chosen); setSheet(null); }} />
-      )}
-      {sheet === 'done' && (
-        <DoneSheet slug={slug} title={recipe.title} factor={factor} planned={planned} aiOn={Boolean(status?.ai)} substituted={cook.substituted}
-          onClose={() => setSheet(null)} onDone={() => { setSheet(null); cook.end(); }} />
       )}
     </div>
   );

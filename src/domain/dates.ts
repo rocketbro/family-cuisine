@@ -73,3 +73,8 @@ export function isRealDate(iso: string): boolean {
 export function realDateOrNull(date: string | null | undefined): ISODate | null {
   return date && isRealDate(date) ? date : null;
 }
+
+/** "Sat, Nov 14" */
+export function weekdayDate(iso: ISODate): string {
+  return `${weekdayName(iso).slice(0, 3)}, ${shortDate(iso)}`;
+}

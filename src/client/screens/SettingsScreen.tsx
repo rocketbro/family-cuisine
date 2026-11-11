@@ -2,6 +2,7 @@
 import { api } from '../api.ts';
 import { useLoad } from '../hooks/useLoad.ts';
 import { usePreferences } from '../preferences.ts';
+import { ShowTipsAgain } from '../onboarding/ShowTipsAgain.tsx';
 import { Segmented } from '../ui/Common.tsx';
 import { SettingsMenu } from './settings/SettingsMenu.tsx';
 
@@ -29,6 +30,7 @@ export function SettingsScreen() {
       </section>
 
       <SettingsMenu status={status} />
+      <ShowTipsAgain />
 
       {status && (
         <p className="faint small section">

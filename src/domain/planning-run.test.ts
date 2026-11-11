@@ -15,6 +15,13 @@ describe('combining requests to plan', () => {
     expect(mergedRequests({ today, through: '2026-11-10' }, { today: '2026-11-04', through: '2026-11-04' })).toEqual({ today: '2026-11-04', through: '2026-11-10' });
     expect(mergedRequests({ today, through: null }, { today, through: null })).toEqual({ today, through: null });
   });
+  it('holds to the book when asked: an open run can’t stand in, and a merge stays held', () => {
+    const through = '2026-11-10';
+    expect(runCovers({ today, through }, { today, through, bookOnly: true })).toBe(false);
+    expect(runCovers({ today, through, bookOnly: true }, { today, through, bookOnly: true })).toBe(true);
+    expect(runCovers({ today, through, bookOnly: true }, { today, through })).toBe(true);
+    expect(mergedRequests({ today, through }, { today, through, bookOnly: true })).toEqual({ today, through, bookOnly: true });
+  });
   it('fills one range over what was asked and what came off', () => {
     expect(rangeToFill({ today, through: null }, [])).toBeNull();
     expect(rangeToFill({ today, through: '2026-11-04' }, [])).toEqual({ from: today, through: '2026-11-04' });

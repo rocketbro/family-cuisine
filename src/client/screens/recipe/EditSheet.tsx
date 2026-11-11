@@ -11,6 +11,7 @@ import { announceChange } from '../../data-events.ts';
 import { useLoad } from '../../hooks/useLoad.ts';
 import { Loading, Problem } from '../../ui/Common.tsx';
 import { Sheet } from '../../ui/Sheet.tsx';
+import { CarriedWords } from './CarriedWords.tsx';
 import { DeleteRecipe } from './DeleteRecipe.tsx';
 import { EditFields } from './EditFields.tsx';
 import { markedFields, revisedLines, revisionOf, withoutLastRevision, type Revision } from './revision-history.ts';
@@ -18,7 +19,8 @@ import { RevisionNote } from './RevisionNote.tsx';
 import { useRecipeRevision } from './useRecipeRevision.ts';
 import { useSheetFootHeight } from './useSheetFootHeight.ts';
 
-export function EditSheet({ slug, onClose }: { slug: string; onClose: () => void }) {
+/** `carried` is what someone said about this recipe elsewhere, offered to Claude here with one tap. */
+export function EditSheet({ slug, carried = null, onClose }: { slug: string; carried?: string | null; onClose: () => void }) {
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -26,20 +28,24 @@ export function EditSheet({ slug, onClose }: { slug: string; onClose: () => void
   }, [slug]);
 
   if (!recipe) return <Sheet title="Edit recipe" onClose={onClose}>{error ? <Problem message={error} /> : <Loading />}</Sheet>;
-  return <EditForm recipe={recipe} onClose={onClose} />;
+  return <EditForm recipe={recipe} carried={carried} onClose={onClose} />;
 }
 
-function EditForm({ recipe, onClose }: { recipe: RecipeDetail; onClose: () => void }) {
+function EditForm({ recipe, carried, onClose }: { recipe: RecipeDetail; carried: string | null; onClose: () => void }) {
   const [form, setForm] = useState<RecipeForm>(() => formFromRecipe(recipe));
+  const [waiting, setWaiting] = useState(carried);
   const [history, setHistory] = useState<Revision[]>([]);
   const [saving, setSaving] = useState(false);
+  // What Claude matched to pantry items; on Save the server keeps the recipe's names as other names.
+  const [matches, setMatches] = useState<RecipeRevision['pantryMatches']>([]);
   const [error, setError] = useState<string | null>(null);
   const { data: status } = useLoad('status', () => api.status());
   const aiOn = Boolean(status?.ai);
   const fields = useRef<HTMLDivElement>(null);
   const inFooter = useSheetFootHeight();
 
-  const onRevised = (before: RecipeForm, { form: after, note }: RecipeRevision) => {
+  const onRevised = (before: RecipeForm, { form: after, note, pantryMatches }: RecipeRevision) => {
+    setMatches(past => [...past, ...pantryMatches]);
     const revision = revisionOf(before, after, note);
     setForm(after);
     setHistory(past => [...past, revision]);
@@ -65,7 +71,7 @@ function EditForm({ recipe, onClose }: { recipe: RecipeDetail; onClose: () => vo
     setSaving(true);
     setError(null);
     try {
-      await api.editRecipe(recipe.slug, { ...form, serves: Number(form.serves), time: form.time.trim() || null, nightBefore: form.nightBefore.trim() || null });
+      await api.editRecipe(recipe.slug, { ...form, serves: Number(form.serves), time: form.time.trim() || null, nightBefore: form.nightBefore.trim() || null, pantryMatches: matches });
       announceChange();
       onClose();
     } catch (e) {
@@ -78,6 +84,10 @@ function EditForm({ recipe, onClose }: { recipe: RecipeDetail; onClose: () => vo
     <div ref={inFooter}>
       {error && <p className="error" style={{ marginTop: 0 }}>{error}</p>}
       {aiOn && revision.heldBy && <p className="small muted" style={{ marginTop: 0 }}>“{revision.heldBy}” isn’t finished yet. Finish it on the bar to tell Claude what to change here.</p>}
+      {aiOn && waiting && (
+        <CarriedWords words={waiting} asking={revision.asking} disabled={revision.underway || saving}
+          apply={async words => { if ((await revision.take(words)) === 'in') setWaiting(null); }} />
+      )}
       <RevisionNote history={history} onUndo={undo} />
       <div className="row">
         {aiOn && <button className="button quiet" aria-label="Tell Claude what to change" disabled={!revision.micFree || saving} onClick={talk}><Mic size={18} /> Tell Claude</button>}

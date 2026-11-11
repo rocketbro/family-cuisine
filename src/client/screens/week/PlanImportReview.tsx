@@ -1,106 +1,113 @@
-// Everything the plan was read as, by day, with what it would replace. Nothing is saved until the
-// button at the bottom. Which week it means is an assumption, so that's at the top and can change.
-import { useState } from 'react';
-import { addDays, longDate, shortDate, type ISODate } from '../../../domain/dates.ts';
-import { clashingSlots, importedDate, placementsToSave, type ImportedMeal } from '../../../domain/plan-import.ts';
-import { isExtraSlot } from '../../../domain/plan-slot.ts';
-import { nextTrip, tripCoversThrough, type ShopSchedule } from '../../../domain/shop-schedule.ts';
+// Everything the plan was read as, a day to a screen. Nothing is saved until the button, which stays
+// in reach on every page and says what's in the way.
+import { useEffect, useRef, useState } from 'react';
+import { shortDate, weekdayName, type ISODate } from '../../../domain/dates.ts';
+import { chooseMeal, firstChangedDate, saveBlocker, withoutMeal } from '../../../domain/plan-import-choices.ts';
+import { reviewDays } from '../../../domain/plan-import-days.ts';
+import { placementsToSave } from '../../../domain/plan-import.ts';
 import type { PlanImportView } from '../../../shared/api-types.ts';
-import type { PlanEntryView } from '../../../shared/views.ts';
 import { api } from '../../api.ts';
 import { announceChange } from '../../data-events.ts';
 import { useLoad } from '../../hooks/useLoad.ts';
 import { useToday } from '../../hooks/useToday.ts';
 import { useWrite } from '../../hooks/useWrite.ts';
-import { ImportMealRow } from './ImportMealRow.tsx';
 import { ImportMealSheet } from './ImportMealSheet.tsx';
-import { ImportWeekChooser } from './ImportWeekChooser.tsx';
+import { PlanImportDay, type ReviewRow } from './PlanImportDay.tsx';
+import { PlanImportPager } from './PlanImportPager.tsx';
+import { PlanImportSaveBar } from './PlanImportSaveBar.tsx';
+import { NO_DAY_PAGE, usePlanImportPager } from './usePlanImportPager.ts';
+import { usePlanRevision } from './usePlanRevision.ts';
 
-type Row = ImportedMeal & { key: number };
-
-export function PlanImportReview({ view, shopping, onSaved, onStartOver }: {
-  view: Extract<PlanImportView, { status: 'ready' }>; shopping: ShopSchedule; onSaved: () => Promise<void>; onStartOver: () => void;
+export function PlanImportReview({ view, onSaved, onStartOver }: {
+  view: Extract<PlanImportView, { status: 'ready' }>; onSaved: () => Promise<void>; onStartOver: () => void;
 }) {
   const today = useToday();
-  const [rows, setRows] = useState<Row[]>(() => view.meals.map((meal, key) => ({ ...meal, key })));
-  const [start, setStart] = useState<ISODate>(view.weekStart);
+  const { range, claudesIdeas } = view;
+  const [rows, setRows] = useState<ReviewRow[]>(() => view.meals.map((meal, key) => ({ ...meal, key })));
   const [editing, setEditing] = useState<number | null>(null);
+  const [note, setNote] = useState<{ words: string; undo: ReviewRow[] } | null>(null);
+  const pendingShow = useRef<ISODate | null>(null);
   const write = useWrite();
+  const { data: status } = useLoad('status', () => api.status());
   const { data: recipes } = useLoad('recipes', () => api.recipes());
 
-  const dated = rows.map(row => ({ row, date: importedDate(row, start) }));
-  const dates = dated.flatMap(({ date }) => date ?? []).sort();
-  const from = dates[0] ?? start;
-  const through = dates[dates.length - 1] ?? addDays(start, 6);
+  const mealDates = rows.flatMap(row => row.date ?? []);
+  const days = reviewDays(range, mealDates, today);
+  const from = [range.from, ...mealDates].sort()[0];
+  const through = [range.through, ...mealDates].sort().at(-1)!;
   const { data: planned } = useLoad(`import-plan:${from}:${through}`, () => api.plan(from, through));
+  const plannedOn = (date: ISODate | null) => planned?.filter(entry => entry.date === date) ?? [];
+  const made = (row: ReviewRow) => row.slot !== 'extra' && plannedOn(row.date).some(e => e.slot === row.slot && e.outcome);
 
-  const toSave = placementsToSave(rows, start, today);
-  const clashes = clashingSlots(toSave);
-  const clashed = clashes.size > 0;
-  const unplaced = dated.filter(d => d.date === null).length;
-  const usesWeek = rows.some(r => r.date === null && r.weekday !== null);
+  const saving = rows.filter(row => row.date !== null && row.date >= today && !made(row));
+  const blocker = saveBlocker(saving, rows);
+  const edited = rows.find(row => row.key === editing);
 
-  const existingAt = (date: ISODate | null, slot: Row['slot']): PlanEntryView | null =>
-    (slot === 'extra' || !date ? null : planned?.find(e => e.date === date && e.slot === slot)) ?? null;
+  const pages: (ISODate | null)[] = rows.some(row => row.date === null) ? [...days, null] : days;
+  const pager = usePlanImportPager(pages.map(date => date ?? NO_DAY_PAGE));
 
-  const extrasAt = (date: ISODate | null, slot: Row['slot']): PlanEntryView[] =>
-    (slot === 'extra' && date && planned?.filter(e => e.date === date && isExtraSlot(e.slot))) || [];
-
-  const groups = [...new Set(dated.map(d => d.date))].sort((a, b) => (a ?? '').localeCompare(b ?? ''));
-  const trip = nextTrip(today, shopping);
-  const edited = rows.find(r => r.key === editing);
+  const onDate = pages[pager.index] ?? null;
+  const revision = usePlanRevision({
+    id: view.id,
+    meals: rows.map(({ key: _key, ...meal }) => meal),
+    onDate,
+    onRevised: (meals, words) => {
+      const before = rows;
+      const nextKey = Math.max(-1, ...rows.map(row => row.key)) + 1;
+      setRows(meals.map((meal, i) => ({ ...meal, key: nextKey + i })));
+      setNote({ words: words || 'Done.', undo: before });
+      const changed = firstChangedDate(before, meals);
+      if (changed) pendingShow.current = changed;
+    },
+  });
+  // The page for a day that's only just appeared doesn't exist until this render's done.
+  useEffect(() => {
+    if (pendingShow.current) pager.show(pendingShow.current);
+    pendingShow.current = null;
+  });
 
   const save = () => write.run(async () => {
-    await api.confirmPlanImport(view.id, toSave);
+    await api.confirmPlanImport(view.id, placementsToSave(saving, today));
     announceChange();
     await onSaved();
   });
 
   return (
-    <div>
-      <div className="notice section">
-        {usesWeek ? <ImportWeekChooser start={start} today={today} shopping={shopping} onChange={setStart} /> : <p style={{ margin: 0 }}>The plan gives its own dates, so they stand as written.</p>}
-        <p className="faint small" style={{ margin: '10px 0 0' }}>The next trip, {shortDate(trip)}, shops for meals through {shortDate(tripCoversThrough(trip, shopping))}. Anything planned before it has to come from what’s in the house.</p>
-      </div>
-
-      {groups.map(date => (
-        <section key={date ?? 'none'} className="section">
-          <span className="eyebrow">{date ? longDate(date) : 'Needs a day'}</span>
-          <div className="list">
-            {dated.filter(d => d.date === date).map(({ row }) => (
-              <ImportMealRow
-                key={row.key}
-                meal={row}
-                existing={existingAt(date, row.slot)}
-                otherExtras={extrasAt(date, row.slot)}
-                past={date !== null && date < today}
-                clash={date !== null && clashes.has(`${date}:${row.slot}`)}
-                onEdit={() => setEditing(row.key)}
-                onRemove={() => setRows(rows.filter(r => r.key !== row.key))}
+    <div className="plan-review">
+      {pages.length > 0 ? (
+        <PlanImportPager
+          pager={pager}
+          pages={pages.map(date => ({
+            key: date ?? NO_DAY_PAGE,
+            label: date ? `${weekdayName(date).slice(0, 3)}, ${shortDate(date)}` : 'Needs a day',
+            content: (
+              <PlanImportDay
+                date={date}
+                rows={rows.filter(row => row.date === date)}
+                planned={plannedOn(date)}
+                today={today}
+                onEdit={setEditing}
+                onRemove={key => setRows(withoutMeal(rows, key))}
+                onUse={key => setRows(chooseMeal(rows, key))}
               />
-            ))}
-          </div>
-        </section>
-      ))}
+            ),
+          }))}
+        />
+      ) : <p className="plan-day-empty plan-review-empty">Nothing left to save.</p>}
 
-      {!rows.length && <p className="section muted">Nothing left to save.</p>}
-      {unplaced > 0 && <p className="section muted small">{unplaced === 1 ? 'One meal has' : `${unplaced} meals have`} no day yet, so {unplaced === 1 ? 'it won’t' : 'they won’t'} be saved until you choose one.</p>}
-      {clashed && <p className="section error">Two meals are set for the same slot. Change or remove one, or make it an extra.</p>}
-      {write.problem && <p className="section error">{write.problem}</p>}
-
-      <button className="button wide section" disabled={!toSave.length || clashed} onClick={save}>
-        Save {toSave.length} {toSave.length === 1 ? 'meal' : 'meals'} to the plan
-      </button>
-      <button className="link-button" style={{ marginTop: 10 }} onClick={onStartOver}>Start over</button>
+      <PlanImportSaveBar
+        count={saving.length} blocker={blocker} problem={write.problem}
+        note={note && { words: note.words, onUndo: () => { setRows(note.undo); setNote(null); } }}
+        teller={status?.ai ? { asking: revision.asking, underway: revision.underway, free: revision.micFree, listen: () => void revision.listen() } : null}
+        onSave={save} onShow={pager.show} onStartOver={onStartOver} />
 
       {edited && recipes && (
         <ImportMealSheet
           meal={edited}
-          recipes={recipes}
-          date={importedDate(edited, start)}
-          start={start}
+          recipes={claudesIdeas ? recipes : recipes.filter(r => !r.claudesPick)}
+          range={range}
           today={today}
-          onChange={meal => setRows(rows.map(r => (r.key === edited.key ? { ...meal, key: r.key } : r)))}
+          onChange={meal => setRows(rows.map(row => (row.key === edited.key ? { ...meal, key: row.key } : row)))}
           onClose={() => setEditing(null)}
         />
       )}

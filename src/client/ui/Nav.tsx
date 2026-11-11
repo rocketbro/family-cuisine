@@ -1,6 +1,6 @@
 // The five places in the app: a tab bar on phones, a sidebar on wider screens. Like a native
 // tab bar, each tab remembers where you were in it; tapping the tab you're on goes to its top.
-import { BookOpen, CalendarDays, Mic, Refrigerator, Settings, ShoppingBasket, Sun, type LucideIcon } from 'lucide-react';
+import { BookOpen, ClipboardList, Mic, Refrigerator, Settings, ShoppingBasket, Sun, type LucideIcon } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { useDictation } from '../dictation/useDictation.ts';
@@ -9,7 +9,7 @@ import { isSettings, TAB_ROOTS, tabOf, type NavState, type TabId } from '../navi
 
 const TABS: { id: TabId; label: string; icon: LucideIcon }[] = [
   { id: 'today', label: 'Today', icon: Sun },
-  { id: 'week', label: 'Week', icon: CalendarDays },
+  { id: 'week', label: 'Plan', icon: ClipboardList },
   { id: 'recipes', label: 'Recipes', icon: BookOpen },
   { id: 'pantry', label: 'Pantry', icon: Refrigerator },
   { id: 'shop', label: 'List', icon: ShoppingBasket },

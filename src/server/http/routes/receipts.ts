@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { toISODate } from '../../../domain/dates.ts';
 import type { Deps } from '../../application/deps.ts';
 import { addReceipt, applyReceipt, dismissSuggestion, receiptFile, receiptView, removeReceipt, retryReceipt, savePricesOnly, tripsView } from '../../application/receipts.ts';
+import { reviseReceipt } from '../../application/receipt-revise.ts';
+import { receiptChoices, receiptRevision } from '../schemas/receipts.ts';
 import { body, files } from '../validate.ts';
 
 export function receiptRoutes(deps: Deps) {
@@ -29,12 +31,10 @@ export function receiptRoutes(deps: Deps) {
       retryReceipt(deps, Number(c.req.param('id')), toISODate(new Date()));
       return c.json({ ok: true });
     })
+    .post('/:id/revise', async c => c.json(await reviseReceipt(deps, Number(c.req.param('id')), await body(c, receiptRevision))))
     .post('/:id/apply', async c => {
-      const { kept, pricesOnly } = await body(c, z.object({
-        kept: z.array(z.object({ index: z.number().int().min(0), name: z.string().max(200) })),
-        pricesOnly: z.boolean().default(false),
-      }));
-      (pricesOnly ? savePricesOnly : applyReceipt)(deps, Number(c.req.param('id')), kept);
+      const { kept, pricesOnly, ...decisions } = await body(c, receiptChoices);
+      (pricesOnly ? savePricesOnly : applyReceipt)(deps, Number(c.req.param('id')), kept, decisions);
       return c.json({ ok: true });
     })
     .delete('/:id', c => {

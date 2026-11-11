@@ -22,6 +22,15 @@ export const mealChoice = z.discriminatedUnion('kind', [
   }) }),
 ]);
 
+/** A meal that came off, on its way to another day. */
+export const cameOffMove = z.object({
+  to: isoDate,
+  meal: z.object({
+    date: isoDate, slot, title: z.string(), recipeSlug: z.string().min(1), multiplier: z.number().positive().max(10),
+    drafted: z.object({ how: z.string().nullable(), uses: z.array(mealUse) }).nullable(),
+  }),
+});
+
 export const chosenSwaps = z.object({ swaps: z.array(z.object({ date: isoDate, slot, toSlug: z.string().min(1), multiplier: z.number().positive().max(10) })).max(21) });
 
 export const mealUpdate = z.object({

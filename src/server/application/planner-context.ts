@@ -10,6 +10,7 @@ import { goingOffSoon } from '../../domain/use-by.ts';
 import type { Deps } from './deps.ts';
 import { batchFor } from './household-profile.ts';
 import { nightBeforeTooLate } from './night-before-check.ts';
+import { pantryCountingLastTrip } from './pantry-with-trip.ts';
 import type { PlannerContext } from './ports/ai.ts';
 import { recipeCard } from './recipe-views.ts';
 import { shopSchedule } from './shop-schedule.ts';
@@ -20,10 +21,10 @@ const PLANNER_USE_SOON_DAYS = 7;
 export function plannerContext(
   deps: Deps, recipes: Recipe[], dates: ISODate[], history: PlanEntry[], existing: PlanEntry[],
 ): PlannerContext {
-  const pantry = deps.pantry.list();
+  const today = toISODate(new Date());
+  const pantry = pantryCountingLastTrip(deps, today);
   const titles = new Map(recipes.map(r => [r.slug, r.title]));
   const describe = (e: PlanEntry) => ({ date: e.date, slot: isExtraSlot(e.slot) ? 'extra' as const : e.slot, title: e.kind === 'leftovers' ? 'leftovers' : titles.get(cookedSlug(e) ?? '') ?? e.note ?? '' });
-  const today = toISODate(new Date());
   return {
     dates,
     seasonOfDate: Object.fromEntries(dates.map(d => [d, seasonOf(d)])),

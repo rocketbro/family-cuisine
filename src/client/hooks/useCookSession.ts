@@ -1,6 +1,6 @@
 // One recipe's working session: the swaps chosen for it, whether cook mode is on, and what's
 // been crossed off. Kept for the browser session, so a reload mid-recipe doesn't lose your
-// place. Cancel or "Done making this" ends it, swaps and all.
+// place. Done ends it, swaps and all.
 import { useEffect, useState } from 'react';
 import type { Substitutions } from '../../domain/substitutes.ts';
 

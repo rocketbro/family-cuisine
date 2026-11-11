@@ -1,20 +1,26 @@
-// What happens on its own: the Sunday plan, a nightly top-up so every morning has a plan, the
+// What happens on its own: the plan on the morning of each grocery run, a nightly top-up so every morning has a plan, the
 // trip's list on record, old recordings cleared, and the notifications. A run counts as done only once its work succeeded,
-// so a failure or a restart gets it again later. A weekly plan missed altogether runs when the service
-// is next up. Notifications are the exception to retrying blindly: once one may have gone out, it's never sent again.
-import { addDays, toISODate, weekdayName, type ISODate } from '../../domain/dates.ts';
+// so a failure or a restart gets it again later. A trip's plan missed altogether runs when the service
+// is next up. Both planning runs can be turned off in Settings, and wait after the plan is cleared. Notifications are the exception to retrying blindly: once one may have gone out, it's never sent again.
+import { addDays, toISODate, type ISODate } from '../../domain/dates.ts';
 import { checkinNotice } from '../../domain/checkin-notice.ts';
 import { minutesOf } from '../../domain/job-run.ts';
+import { mealsOffNotice, mealsOffNoticeDue } from '../../domain/meal-off.ts';
 import { nightBeforeNotice, nightBeforeTasks, reminderWindowOpen } from '../../domain/night-before-reminder.ts';
 import { extrasOnly } from '../../domain/plan-slot.ts';
-import { nextTrip } from '../../domain/shop-schedule.ts';
-import { weeklyNoticeFits, weeklyRunDay } from '../../domain/weekly-run.ts';
+import { tripWindow } from '../../domain/shop-schedule.ts';
+import { nightlyRuns, tripMorningRuns } from '../../domain/automatic-planning.ts';
+import { receiptPromptDue, tripNoticeFits, tripPlanDue } from '../../domain/trip-plan-run.ts';
+import { tripMorningNotice, tripReceiptNotice } from '../../domain/trip-notices.ts';
+import { checkinLeftToAsk } from './checkin-open.ts';
+import { automaticPlanning } from './automatic-planning.ts';
 import { shopSchedule } from './shop-schedule.ts';
 import type { JobSchedule } from '../../domain/job-run.ts';
 import type { Deps } from './deps.ts';
+import { markMealsOffTold, untoldMealsOff } from './meals-off.ts';
 import { backfillNightBefore } from './night-before-backfill.ts';
 import { nightBeforeTime } from './night-before-time.ts';
-import { planAhead, planToHorizon } from './planning.ts';
+import { planAhead } from './planning.ts';
 import { keepTripList } from './receipts.ts';
 import { shoppingWeek } from './shopping.ts';
 
@@ -22,13 +28,14 @@ export type Schedule = JobSchedule;
 
 type Message = Parameters<Deps['notifier']['send']>[0];
 
-/** Nightly: make sure today and tomorrow are planned even if Sunday was missed. */
+/** Nightly: make sure today and tomorrow are planned. */
 const TOP_UP_HOUR = 3;
 /** After this long, a run that never finished (the server restarted) is picked up again. */
 const LEASE_MS = 15 * 60_000;
 /** How long a run that failed waits before trying again. */
 const RETRY_MS = 5 * 60_000;
 const REMINDER_JOB = 'night-before';
+const MEALS_OFF_JOB = 'meals-off';
 const BACKFILL_JOB = 'night-before-backfill';
 const BACKFILL_RUN = 'once';
 /** A one-time job with nowhere to be, which spends tokens each go: a failure waits longer. */
@@ -44,7 +51,7 @@ export async function runDueJobs(deps: Deps, schedule: Schedule, now: Date): Pro
       const removed = deps.recordings.sweep();
       if (removed) deps.log(`removed ${removed} recording(s) older than a week`);
     });
-    await retried(deps, 'top-up', today, now, () => planAhead(deps, today, addDays(today, 1)));
+    if (nightlyRuns(automaticPlanning(deps))) await retried(deps, 'top-up', today, now, () => planAhead(deps, today, addDays(today, 1)));
     // So a trip has its list on record even if nobody opens the screen before going.
     await retried(deps, 'trip-list', today, now, () => {
       const week = shoppingWeek(deps, today);
@@ -55,19 +62,30 @@ export async function runDueJobs(deps: Deps, schedule: Schedule, now: Date): Pro
   const planStart = schedule.planTime.hour * 60 + schedule.planTime.minute;
   const checkinStart = schedule.checkinTime.hour * 60 + schedule.checkinTime.minute;
 
-  // Keyed by the plan day, not today, so a late run still counts as that week's one run.
-  const runDay = weeklyRunDay(today, minutes, schedule.planWeekday, planStart);
-  if (runDay) {
-    await retried(deps, 'weekly-plan', runDay, now, () => weeklyPlan(deps, today));
-    if (deps.household.jobCompleted('weekly-plan', runDay) && weeklyNoticeFits(runDay, today, minutes, planStart, checkinStart)) {
-      await notifyOnce(deps, 'weekly-notice', runDay, now, weeklyNotice(deps, today));
+  // Keyed by the trip, not today, so a late run still counts as that trip's one run.
+  const shop = shopSchedule(deps);
+  const trip = tripPlanDue(today, minutes, shop, planStart);
+  if (trip) {
+    const plans = tripMorningRuns(automaticPlanning(deps));
+    if (plans) await retried(deps, 'trip-plan', trip, now, () => tripPlan(deps, today));
+    if ((!plans || deps.household.jobCompleted('trip-plan', trip)) && tripNoticeFits(trip, today, minutes, planStart)) {
+      await notifyOnce(deps, 'trip-notice', trip, now, tripMorningNotice(today, shop, plans));
     }
+  }
+
+  if (mealsOffNoticeDue(minutes, planStart)) await tellMealsOff(deps, today, now);
+
+  if (receiptPromptDue(today, minutes, shop, checkinStart) && !deps.receipts.list().some(r => r.shopDate === today)) {
+    await notifyOnce(deps, 'trip-receipt', today, now, tripReceiptNotice(today));
   }
 
   // Only within two hours of the set time: a late restart shouldn't buzz phones at midnight.
   if (minutes >= checkinStart && minutes < checkinStart + 120) {
-    const extras = extrasOnly(deps.plan.range(today, today)).flatMap(e => deps.recipes.get(e.recipeSlug ?? '')?.title ?? e.note ?? []);
-    await notifyOnce(deps, 'checkin', today, now, { ...checkinNotice(extras), url: `/checkin/${today}` });
+    // Meals checked off on Today answer their questions there; with nothing left, there's nothing to nudge about.
+    if (checkinLeftToAsk(deps, today)) {
+      const extras = extrasOnly(deps.plan.range(today, today)).flatMap(e => deps.recipes.get(e.recipeSlug ?? '')?.title ?? e.note ?? []);
+      await notifyOnce(deps, 'checkin', today, now, { ...checkinNotice(extras), url: `/checkin/${today}` });
+    }
   }
 
   if (reminderWindowOpen(minutes, minutesOf(nightBeforeTime(deps)))) await nightBeforeReminder(deps, today, now);
@@ -86,6 +104,15 @@ async function nightBeforeReminder(deps: Deps, today: ISODate, now: Date): Promi
   const message = nightBeforeNotice(nightBeforeTasks(deps.plan.range(tomorrow, tomorrow), slug => deps.recipes.get(slug)));
   if (message) await notifyOnce(deps, REMINDER_JOB, today, now, message);
   else if (deps.household.claimJob(REMINDER_JOB, today, now.toISOString(), null)) deps.household.completeJob(REMINDER_JOB, today);
+}
+
+/** One notice a morning. Anything that comes off after it waits for the next, and the Day screen says so meanwhile. */
+async function tellMealsOff(deps: Deps, today: ISODate, now: Date): Promise<void> {
+  if (deps.household.jobCompleted(MEALS_OFF_JOB, today)) return;
+  const offs = untoldMealsOff(deps, today);
+  if (!offs.length) return;
+  await notifyOnce(deps, MEALS_OFF_JOB, today, now, mealsOffNotice(offs, today));
+  if (deps.household.jobCompleted(MEALS_OFF_JOB, today)) markMealsOffTold(deps, offs);
 }
 
 /** Safe to run again, so a run that fails or never finishes simply gets another go. */
@@ -121,15 +148,7 @@ function later(now: Date, ms: number): string {
   return new Date(now.getTime() + ms).toISOString();
 }
 
-async function weeklyPlan(deps: Deps, today: ISODate): Promise<void> {
-  const { added } = await planToHorizon(deps, today);
-  deps.log(`weekly plan: ${added} meals added`);
-}
-
-function weeklyNotice(deps: Deps, today: ISODate): Message {
-  return {
-    title: 'This week’s meals are planned',
-    body: `Take a look, swap anything, and pick Aldi or Walmart for ${weekdayName(nextTrip(today, shopSchedule(deps)))}.`,
-    url: '/week',
-  };
+async function tripPlan(deps: Deps, today: ISODate): Promise<void> {
+  const { added } = await planAhead(deps, today, tripWindow(today, shopSchedule(deps)).end);
+  deps.log(`trip plan: ${added} meals added`);
 }

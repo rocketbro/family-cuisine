@@ -4,8 +4,11 @@ import { ingredientsFromText, planWithoutRecipe } from '../../domain/recipe-edit
 import type { Recipe, RecipeImage } from '../../domain/recipe.ts';
 import type { Season } from '../../domain/seasons.ts';
 import type { Substitutions } from '../../domain/substitutes.ts';
+import type { PantryMatch } from '../../domain/pantry-other-names.ts';
 import type { Deps } from './deps.ts';
+import type { PantryRef } from './ports/ai.ts';
 import type { RecipeDraft } from './ports/recipes.ts';
+import { addOtherNames } from './recipe-other-names.ts';
 import { recipeCard, recipeDetail, recipeFileNotice } from './recipe-views.ts';
 import type { RecipeCard, RecipeDetail, RecipeFileNotice } from '../../shared/views.ts';
 import { UserError } from './user-error.ts';
@@ -25,14 +28,19 @@ export function getRecipe(deps: Deps, slug: string, factor = 1, substituted: Sub
   return recipe ? recipeDetail(recipe, deps.pantry.list(), factor, substituted) : null;
 }
 
-export type RecipeChanges = Pick<Recipe, 'title' | 'meals' | 'serves' | 'time' | 'summary' | 'body'> & { ingredients: string; nightBefore?: string | null };
+export type RecipeChanges = Pick<Recipe, 'title' | 'meals' | 'serves' | 'time' | 'summary' | 'body'> & {
+  ingredients: string; nightBefore?: string | null;
+  /** From the last "Tell Claude" answer the form holds, so the names it used can become other names on Save. */
+  pantryMatches?: PantryMatch[];
+};
 
-export function editRecipe(deps: Deps, slug: string, changes: RecipeChanges): void {
+export function editRecipe(deps: Deps, slug: string, { pantryMatches, ...changes }: RecipeChanges): void {
   const recipe = deps.recipes.get(slug);
   if (!recipe) throw new UserError('No such recipe.', 404);
   const ingredients = ingredientsFromText(changes.ingredients);
   if (!ingredients.length) throw new UserError('A recipe needs at least one ingredient.');
   deps.recipes.update(slug, { ...changes, ingredients, nightBefore: nightBeforeChange(recipe.nightBefore, changes.nightBefore) });
+  addOtherNames(deps, pantryMatches, ingredients);
 }
 
 /**
@@ -101,7 +109,7 @@ export async function refreshRecipeImage(deps: Deps, slug: string): Promise<bool
 export async function importFromUrl(deps: Deps, url: string, notes: string | null = null, viaClaude = false): Promise<string> {
   requireModel(deps);
   const page = await (viaClaude ? deps.claudePages : deps.pages).fetch(url);
-  const draft = await deps.ai.recipeFromPage(page, notes);
+  const draft = await deps.ai.recipeFromPage(page, pantryRefs(deps), notes);
   return saveImported(deps, { ...draft, source: { name: page.siteName, url: page.url } });
 }
 
@@ -109,14 +117,14 @@ export async function importFromPhotos(deps: Deps, photos: Buffer[], sourceName:
   requireModel(deps);
   if (!photos.length) throw new UserError('Add at least one photo of the recipe.');
   const images = await Promise.all(photos.map(p => deps.photos.forModel(p)));
-  const draft = await deps.ai.recipeFromImages(images, pantryNames(deps), notes);
+  const draft = await deps.ai.recipeFromImages(images, pantryRefs(deps), notes);
   return saveImported(deps, { ...draft, source: sourceName?.trim() ? { name: sourceName.trim(), url: null } : null });
 }
 
 export async function importFromWords(deps: Deps, words: string): Promise<string> {
   requireModel(deps);
   if (!words.trim()) throw new UserError('Say or type the recipe first.');
-  return saveImported(deps, await deps.ai.recipeFromDescription(words, pantryNames(deps)));
+  return saveImported(deps, await deps.ai.recipeFromDescription(words, pantryRefs(deps)));
 }
 
 /** A Claude's pick the family likes joins the regular rotation. */
@@ -127,6 +135,7 @@ export function keepPick(deps: Deps, slug: string): void {
 
 export async function saveImported(deps: Deps, draft: RecipeDraft): Promise<string> {
   const slug = deps.recipes.save(draft);
+  addOtherNames(deps, draft.pantryMatches, draft.ingredients);
   await findRecipeImage(deps, { slug, title: draft.title, image: null });
   return slug;
 }
@@ -135,6 +144,7 @@ function requireModel(deps: Deps): void {
   if (!deps.ai.available()) throw new UserError('Recipe import needs the Anthropic API key in .env.', 503);
 }
 
-function pantryNames(deps: Deps): string[] {
-  return deps.pantry.list().map(p => p.name);
+/** What every import and revision shows the model to match against. */
+export function pantryRefs(deps: Deps): PantryRef[] {
+  return deps.pantry.list().map(({ name, alsoCalled }) => ({ name, alsoCalled }));
 }

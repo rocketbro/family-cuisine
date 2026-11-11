@@ -9,6 +9,7 @@ import { chooseStore, markBought, shoppingWeek } from '../../application/shoppin
 import { refreshAldiPrices } from '../../application/aldi-lookup.ts';
 import { setPrice, setWalmartProduct } from '../../application/shopping-prices.ts';
 import { forgetSentToCart, noteSentToCart } from '../../application/walmart-cart.ts';
+import { shoppingLineRoutes } from './shopping-lines.ts';
 import { store } from '../schemas/common.ts';
 import { body } from '../validate.ts';
 
@@ -16,6 +17,7 @@ const lineRef = z.object({ pantryItemId: z.number().nullable(), name: z.string()
 
 export function shoppingRoutes(deps: Deps) {
   return new Hono()
+    .route('/', shoppingLineRoutes(deps))
     .get('/', c => c.json(shoppingWeek(deps, toISODate(new Date()))))
     .post('/opened', c => {
       noteListOpened(deps, toISODate(new Date()));
@@ -28,7 +30,7 @@ export function shoppingRoutes(deps: Deps) {
     })
     .post('/bought', async c => {
       const { lines, stock, token } = await body(c, z.object({
-        lines: z.array(z.object({ pantryItemId: z.number().nullable(), name: z.string(), quantity: z.number().nullable() })),
+        lines: z.array(z.object({ key: z.string().max(200).optional(), pantryItemId: z.number().nullable(), name: z.string(), quantity: z.number().nullable() })),
         stock: z.array(z.object({ pantryItemId: z.number(), packages: z.number().int().min(1) })).default([]),
         token: z.string().min(8).max(100).optional(),
       }));

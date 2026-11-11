@@ -27,11 +27,18 @@ export function PlanImportScreen() {
 
   const startOver = () => write.run(async () => { await api.discardPlanImport(); await reload(); });
 
+  // The review is the whole screen, a day at a time.
+  if (view.status === 'ready') return (
+    <div className="page plan-review-page">
+      <PlanImportReview key={view.id} view={view} onSaved={reload} onStartOver={startOver} />
+    </div>
+  );
+
   return (
     <div className="page">
       <h1 style={{ marginBottom: 12 }}>Import a meal plan</h1>
-      {view.status === 'none' && <PlanImportForm aiOn={status.ai} onStarted={reload} />}
-      {view.status === 'reading' && <p className="section muted italic">Reading the plan. You can leave this screen; it’ll keep going.</p>}
+      {view.status === 'none' && <PlanImportForm aiOn={status.ai} shopping={status.shopping} onStarted={reload} />}
+      {view.status === 'reading' && <p className="section muted italic">Reading the plan. You can leave this screen.</p>}
       {view.status === 'failed' && (
         <section className="section stack">
           <p className="error">{view.error}</p>
@@ -39,8 +46,7 @@ export function PlanImportScreen() {
           <button className="button quiet wide" onClick={startOver}>{view.canRetry ? 'Start over' : 'Add the plan again'}</button>
         </section>
       )}
-      {view.status === 'ready' && <PlanImportReview key={view.id} view={view} shopping={status.shopping} onSaved={reload} onStartOver={startOver} />}
-      {view.status === 'saved' && <PlanImportSaved view={view} aiOn={status.ai} shopping={status.shopping} onAnother={startOver} />}
+      {view.status === 'saved' && <PlanImportSaved view={view} shopping={status.shopping} onAnother={startOver} />}
       {write.problem && <p className="error" style={{ marginTop: 12 }}>{write.problem}</p>}
     </div>
   );

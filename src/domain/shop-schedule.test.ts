@@ -1,52 +1,89 @@
 import { describe, expect, it } from 'vitest';
-import { beforeGroceries, nextTrip, planHorizonEnd, regularFor, tripIfUnmoved, tripMoveChoices, tripsBetween, type ShopSchedule } from './shop-schedule.ts';
+import { addDays } from './dates.ts';
+import { beforeGroceries, nextTrip, nextTripWindow, planHorizonEnd, previousTripWindow, tripsBetween, tripWindow, withTripMoved, type ShopSchedule } from './shop-schedule.ts';
 
-describe('moving one week\'s trip', () => {
-  const moved: ShopSchedule = { weekday: 3, moved: { '2026-11-04': '2026-11-06' } };
-  it('uses the moved day for that week only', () => {
-    expect(nextTrip('2026-11-03', moved)).toBe('2026-11-06');
-    expect(nextTrip('2026-11-05', moved)).toBe('2026-11-06'); // the regular Wednesday has passed, Friday hasn't
-    expect(nextTrip('2026-11-07', moved)).toBe('2026-11-11');
-    expect(regularFor('2026-11-06', moved)).toBe('2026-11-04');
+const WEDNESDAYS: ShopSchedule = { trips: ['2026-11-04'] };
+
+describe('trips going forward', () => {
+  it('uses a chosen day, then counts weeks on from it', () => {
+    const chosen: ShopSchedule = { trips: ['2026-11-04', '2026-11-07'] };
+    expect(nextTrip('2026-11-05', chosen)).toBe('2026-11-07');
+    expect(nextTrip('2026-11-07', chosen)).toBe('2026-11-07');
+    expect(nextTrip('2026-11-08', chosen)).toBe('2026-11-14');
+    expect(nextTrip('2026-11-15', chosen)).toBe('2026-11-21');
   });
-  it('keeps meals ready-only until the moved trip, and covers through the next one', () => {
-    expect(beforeGroceries('2026-11-05', '2026-11-03', moved)).toBe(true);
-    expect(beforeGroceries('2026-11-06', '2026-11-03', moved)).toBe(false);
-    expect(planHorizonEnd('2026-11-03', moved)).toBe('2026-11-10');
+
+  it('counts weeks back from the first one on record', () => {
+    expect(nextTrip('2026-10-20', WEDNESDAYS)).toBe('2026-10-21');
+    expect(tripWindow('2026-10-20', WEDNESDAYS)).toEqual({ start: '2026-10-14', end: '2026-10-20' });
   });
-  it('moving earlier works too', () => {
-    const early: ShopSchedule = { weekday: 3, moved: { '2026-11-11': '2026-11-09' } };
-    expect(nextTrip('2026-11-05', early)).toBe('2026-11-09');
-    expect(tripsBetween('2026-11-01', '2026-11-14', early)).toEqual(['2026-11-04', '2026-11-09']);
+
+  it('keeps meals ready-only until the trip, and covers through the next one', () => {
+    const chosen: ShopSchedule = { trips: ['2026-11-06'] };
+    expect(beforeGroceries('2026-11-05', '2026-11-03', chosen)).toBe(true);
+    expect(beforeGroceries('2026-11-06', '2026-11-03', chosen)).toBe(false);
+    expect(planHorizonEnd('2026-11-03', chosen)).toBe('2026-11-12');
   });
 });
 
-describe('choosing a day for the coming trip', () => {
-  const WEDNESDAY = 3;
-  const FRIDAY = '2026-11-06';
+describe('putting a trip on a different day', () => {
+  it('stretches the days before it, and counts on from the new day', () => {
+    const moved = { trips: withTripMoved(['2026-11-07'], '2026-11-14', '2026-11-17') };
+    expect(tripWindow('2026-11-10', moved)).toEqual({ start: '2026-11-07', end: '2026-11-16' });
+    expect(nextTrip('2026-11-18', moved)).toBe('2026-11-24');
+  });
 
-  it('runs from today to the day before the usual trip after it', () => {
-    const days = tripMoveChoices('2026-11-02', { weekday: WEDNESDAY, moved: {} });
-    expect(days[0]).toBe('2026-11-02');
-    expect(days.at(-1)).toBe('2026-11-10');
+  it('lets a trip that didn’t happen go, so the last one carries on until the new day', () => {
+    const moved = { trips: withTripMoved(['2026-11-04', '2026-11-07'], '2026-11-07', '2026-11-09') };
+    expect(moved.trips).toEqual(['2026-11-04', '2026-11-09']);
+    expect(tripWindow('2026-11-08', moved)).toEqual({ start: '2026-11-04', end: '2026-11-08' });
   });
-  it('counts from the usual day of a trip that already moved', () => {
-    const days = tripMoveChoices(FRIDAY, { weekday: WEDNESDAY, moved: { '2026-11-04': FRIDAY } });
-    expect(days).toEqual([FRIDAY, '2026-11-07', '2026-11-08', '2026-11-09', '2026-11-10']);
+
+  it('keeps the weekly trips that had already gone by on record', () => {
+    expect(withTripMoved(['2026-11-04'], '2026-11-25', '2026-11-27')).toEqual(['2026-11-04', '2026-11-11', '2026-11-18', '2026-11-27']);
   });
-  it('still offers the day a trip is on, when it was moved past the usual trip after it', () => {
-    const days = tripMoveChoices('2026-11-12', { weekday: WEDNESDAY, moved: { '2026-11-04': '2026-11-13', '2026-11-11': '2026-11-20' } });
-    expect(days).toContain(nextTrip('2026-11-12', { weekday: WEDNESDAY, moved: { '2026-11-04': '2026-11-13', '2026-11-11': '2026-11-20' } }));
+
+  it('drops a later trip that was already chosen', () => {
+    expect(withTripMoved(['2026-11-04', '2026-11-11', '2026-11-20'], '2026-11-11', '2026-11-13')).toEqual(['2026-11-04', '2026-11-13']);
+  });
+
+  it('starts from nothing the first time', () => {
+    expect(withTripMoved([], '2026-11-11', '2026-11-13')).toEqual(['2026-11-13']);
   });
 });
 
-describe('undoing a move', () => {
-  const WEDNESDAY = 3;
-
-  it('goes back to the usual day while that is still ahead', () => {
-    expect(tripIfUnmoved('2026-11-02', { weekday: WEDNESDAY, moved: { '2026-11-04': '2026-11-06' } })).toBe('2026-11-04');
+describe('the days between trips', () => {
+  it('runs from the trip through the day before the next one', () => {
+    expect(tripWindow('2026-11-08', WEDNESDAYS)).toEqual({ start: '2026-11-04', end: '2026-11-10' });
   });
-  it('lands on the next usual day once that has passed', () => {
-    expect(tripIfUnmoved('2026-11-05', { weekday: WEDNESDAY, moved: { '2026-11-04': '2026-11-06' } })).toBe('2026-11-11');
+
+  it('gives the trip day to the window it starts, and the day before to the one it ends', () => {
+    expect(tripWindow('2026-11-11', WEDNESDAYS).start).toBe('2026-11-11');
+    expect(tripWindow('2026-11-10', WEDNESDAYS).start).toBe('2026-11-04');
+  });
+
+  it('steps to the windows either side', () => {
+    const window = tripWindow('2026-11-08', WEDNESDAYS);
+    expect(previousTripWindow(window, WEDNESDAYS).start).toBe('2026-10-28');
+    expect(nextTripWindow(window, WEDNESDAYS).start).toBe('2026-11-11');
+  });
+
+  it('makes a window of one day when trips land on consecutive days', () => {
+    const close: ShopSchedule = { trips: ['2026-11-04', '2026-11-05'] };
+    expect(tripWindow('2026-11-04', close)).toEqual({ start: '2026-11-04', end: '2026-11-04' });
+  });
+
+  it('marks trip days between two dates', () => {
+    expect(tripsBetween('2026-11-01', '2026-11-14', { trips: ['2026-11-04', '2026-11-09'] })).toEqual(['2026-11-04', '2026-11-09']);
+  });
+
+  it('leaves no day out and none twice, across chosen trips', () => {
+    const schedule: ShopSchedule = { trips: ['2026-11-04', '2026-11-07', '2026-11-17'] };
+    let window = tripWindow('2026-10-28', schedule);
+    for (let i = 0; i < 8; i++) {
+      const next = nextTripWindow(window, schedule);
+      expect(next.start).toBe(addDays(window.end, 1));
+      window = next;
+    }
   });
 });

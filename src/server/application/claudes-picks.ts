@@ -5,7 +5,7 @@ import { portionsText } from '../../domain/portions.ts';
 import { slugify, type MealSlot, type Recipe } from '../../domain/recipe.ts';
 import type { Deps } from './deps.ts';
 import { batchFor } from './household-profile.ts';
-import { deleteRecipe, saveImported } from './recipes.ts';
+import { deleteRecipe, pantryRefs, saveImported } from './recipes.ts';
 import { UserError } from './user-error.ts';
 
 type PickRequest = {
@@ -43,7 +43,7 @@ async function writeNew(deps: Deps, { title, idea, slot, fromHouse, onlyIfReady 
     idea,
     fromHouse ? `Nothing gets bought: use only these, and no more than the amounts shown. ${inHouse.join(', ')}.` : null,
   ].filter(Boolean).join('\n');
-  const draft = await deps.ai.recipeFromDescription(description, pantry.map(p => p.name));
+  const draft = await deps.ai.recipeFromDescription(description, pantryRefs(deps), { invented: true });
   if (onlyIfReady && recipeAvailability(draft.ingredients, pantry, batchFor(deps, draft.serves)).level !== 'ready') {
     deps.log(`left out ${title}: the written recipe needs more than the house has`);
     return null;

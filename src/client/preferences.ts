@@ -7,11 +7,11 @@ export type ListView = { reason: boolean; product: boolean; price: boolean };
 
 export type Preferences = {
   size: 's' | 'm' | 'l' | 'xl'; font: 'serif' | 'sans'; theme: 'auto' | 'light' | 'dark'; person: string;
-  listView: ListView; swipeHintSeen: boolean; hideClaudesPicks: boolean;
+  listView: ListView; hideClaudesPicks: boolean;
 };
 
 const KEY = 'cuisine.preferences';
-const DEFAULTS: Preferences = { size: 'm', font: 'serif', theme: 'auto', person: '', listView: { reason: true, product: true, price: true }, swipeHintSeen: false, hideClaudesPicks: false };
+const DEFAULTS: Preferences = { size: 'm', font: 'serif', theme: 'auto', person: '', listView: { reason: true, product: true, price: true }, hideClaudesPicks: false };
 
 export function readPreferences(): Preferences {
   try {
@@ -19,6 +19,10 @@ export function readPreferences(): Preferences {
   } catch {
     return DEFAULTS;
   }
+}
+
+export function writePreferences(p: Preferences): void {
+  localStorage.setItem(KEY, JSON.stringify(p));
 }
 
 function apply(p: Preferences): void {

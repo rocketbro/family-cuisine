@@ -1,21 +1,12 @@
-// The household's shopping schedule as the use cases see it: the saved weekday (or the
-// .env default) and any one-off trip moves.
-import type { ISODate } from '../../domain/dates.ts';
-import { regularFor, type ShopSchedule } from '../../domain/shop-schedule.ts';
+// The household's shopping schedule as the use cases see it: the trips on record. With none yet,
+// the .env weekday starts the weekly rhythm.
+import { addDays, dayOfWeek } from '../../domain/dates.ts';
+import type { ShopSchedule } from '../../domain/shop-schedule.ts';
 import type { Deps } from './deps.ts';
 
-const WEEKDAY_KEY = 'shop_weekday';
+const ANY_WEEK = '2026-01-04';
 
-export function shopSchedule(deps: Deps): ShopSchedule {
-  const saved = deps.household.setting(WEEKDAY_KEY);
-  return { weekday: saved === null ? deps.settings.shopWeekday : Number(saved), moved: deps.household.tripMoves() };
-}
-
-/** Moving a trip to another day keeps it the same trip. */
-export function tripOf(deps: Deps, shopDate: ISODate): ISODate {
-  return regularFor(shopDate, shopSchedule(deps));
-}
-
-export function saveShopWeekday(deps: Deps, weekday: number): void {
-  deps.household.saveSetting(WEEKDAY_KEY, String(weekday));
+export function shopSchedule(deps: Pick<Deps, 'household' | 'settings'>): ShopSchedule {
+  const trips = deps.household.shopTrips();
+  return { trips: trips.length ? trips : [addDays(ANY_WEEK, (deps.settings.shopWeekday - dayOfWeek(ANY_WEEK) + 7) % 7)] };
 }

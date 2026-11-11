@@ -8,6 +8,7 @@ import { dateAfterChange } from '../../domain/use-by.ts';
 import type { Deps } from './deps.ts';
 import type { PantryInput } from './ports/pantry.ts';
 import type { ProposedChange } from '../../shared/api-types.ts';
+import { forgetStandIns, forgetStandInsOnceOut } from './stand-ins.ts';
 import { UserError } from './user-error.ts';
 
 /** A change to an item, and to its portions if it has any. */
@@ -36,7 +37,12 @@ function moveStock(deps: Deps, item: PantryItem, move: PortionMove, today: ISODa
   return deps.pantry.update(item.id, { status: item.status === 'low' ? 'low' : 'have', count: null, ...soonestDate(result.portions) });
 }
 
-export function updatePantryItem(deps: Deps, id: number, { portions: said, move, add, ...patch }: PantryPatch): PantryItem | null {
+export function updatePantryItem(deps: Deps, id: number, patch: PantryPatch): PantryItem | null {
+  // Something that stood in for another name just this time stops when it runs out.
+  return forgetStandInsOnceOut(deps, changeItem(deps, id, patch));
+}
+
+function changeItem(deps: Deps, id: number, { portions: said, move, add, ...patch }: PantryPatch): PantryItem | null {
   const item = deps.pantry.get(id);
   if (!item) return null;
   if (move) return moveStock(deps, item, move, toISODate(new Date()));
@@ -58,6 +64,7 @@ export function updatePantryItem(deps: Deps, id: number, { portions: said, move,
 
 export function removePantryItem(deps: Deps, id: number): void {
   deps.pantry.remove(id);
+  forgetStandIns(deps, id);
 }
 
 type AppliedChange = Pick<ProposedChange, 'name' | 'status' | 'count' | 'category' | 'pantryItemId' | 'useBy' | 'lastsDays' | 'keepStocked' | 'portions' | 'alsoCalled'>;

@@ -1,6 +1,7 @@
 // Checks what Claude made of a recipe form before anyone sees it. Anything that doesn't fit is
 // refused whole, so the form never takes half an answer. What Claude left alone goes back exactly
 // as it was sent, so a person's own spacing and odd lines are never tidied, or held against it.
+import type { PantryMatch } from './pantry-other-names.ts';
 import { isGroupLine, readsAsIngredient } from './ingredient-line-check.ts';
 import { cleanNightBefore, nightBeforeRefused } from './night-before.ts';
 import { ingredientLines, sameIngredients, sameMeals, sameText, type RecipeForm } from './recipe-form.ts';
@@ -20,6 +21,8 @@ export type SaidRevision = {
   summary: string;
   ingredients: string[];
   body: string;
+  /** The ingredients of the answer that are pantry items, by exact pantry name. */
+  pantryMatches: PantryMatch[];
 };
 
 /** What a recipe may hold, the same limits a save has to meet. */

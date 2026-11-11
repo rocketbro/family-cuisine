@@ -1,15 +1,16 @@
 // The bottom of the list: what the trip should come to, the budget, and where any room goes.
 import { useState } from 'react';
 import { formatDollars, isEstimate, parseDollars } from '../../../domain/prices.ts';
+import { overBudget } from '../../../domain/trip-edits.ts';
 import type { ShoppingWeek } from '../../../shared/api-types.ts';
 import { api } from '../../api.ts';
 import { announceChange } from '../../data-events.ts';
 import { useWrite } from '../../hooks/useWrite.ts';
 import { TabLink } from '../../navigation/TabLink.tsx';
 
-type Props = { week: ShoppingWeek; lookupError: string | null };
+type Props = { week: ShoppingWeek; lookupError: string | null; onTrim: () => void };
 
-export function TripTotal({ week, lookupError }: Props) {
+export function TripTotal({ week, lookupError, onTrim }: Props) {
   const { total, tax, budgetCents: budget, leewayCents: leeway, stockTotalCents: stock, store, aldiLookup: lookup } = week;
   const write = useWrite();
   const editBudget = () => {
@@ -22,7 +23,7 @@ export function TripTotal({ week, lookupError }: Props) {
   };
   const withTax = total.cents + (tax?.cents ?? 0);
   const estimated = week.lines.some(l => l.price && isEstimate(l));
-  const over = budget !== null && withTax > budget ? withTax - budget : 0;
+  const over = overBudget(budget, withTax);
 
   return (
     <div className="total-card">
@@ -51,6 +52,7 @@ export function TripTotal({ week, lookupError }: Props) {
           {over > 0 && <span className="error">{formatDollars(over)} over</span>}
           {!over && leeway !== null && <span className="muted">{formatDollars(leeway)} of room</span>}
         </div>
+        {over > 0 && <button className="button quiet wide" onClick={onTrim}>Choose what to skip</button>}
         {write.problem && <p className="error small" style={{ margin: 0 }}>{write.problem}</p>}
         {budget !== null && leeway === null && <p className="faint small" style={{ margin: 0 }}>Too many prices are missing to tell how much room there is.</p>}
         {store === 'aldi' && leeway !== null && leeway > 0 && <FindsSlider key={leeway} saved={Math.min(week.findsCents, leeway)} most={leeway} />}
