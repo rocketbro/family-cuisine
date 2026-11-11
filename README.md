@@ -20,7 +20,10 @@ accounts and no plans for either: this is a home project shared so other familie
 - **Changing your mind**: swap a meal for anything, or move it to another day, where it trades places with what's there.
   Replace a recipe and it offers to move that one instead of losing it. Leftovers follow what happened: a dinner that was
   skipped or changed takes its planned leftovers with it, and only dinners you made are offered as leftovers. The check-in asks if any dinner is left, one tap, and
-  the swap sheet and the dice go by the answer.
+  the swap sheet goes by the answer, and a yes puts the dish in the fridge list.
+  The Pantry tab opens with "In the fridge": short lines, typed or said, for cooked bits to use up (sautéed onions and
+  beans). They aren't stock, never reach the list, and clear after 5 days or with Used up. The planner and the dice see
+  them and use the oldest first.
 - **Extras**: anything else you mean to make on a day, like a birthday cake, on top of its meals.
   Its ingredients go on the list and it comes off the pantry once it's made. The planner never touches them.
 - **Import a meal plan** (Plan tab): choose the days you're planning (the next grocery trip's, unless you change them), then a photo, typed words or dictation of a plan you already wrote, partial is fine. Claude reads it (it needs a key) in the order you wrote it, so a Saturday that comes round again is the next Saturday. You flip through it a day to a screen, settle anything that needs deciding, and nothing saves until you confirm. Then "Fill in the rest" is your choice. Reading never makes up recipes: a meal with no recipe stays a name. Turn Claude's ideas off and filling in the rest keeps to recipes in your book, too.
@@ -144,7 +147,6 @@ Everything else goes in `.env`, and needs a restart. All of it is optional.
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | none | Turns on Claude: planning, imports, dictation, receipts, the dice |
 | `CUISINE_MODEL` | `claude-sonnet-5-5` | Which Claude model to use |
-| `CUISINE_FAST_MODEL` | `claude-haiku-5-5` | The faster model for recipe imports (link, photos, words), night-before steps and fetching blocked pages |
 | `UNSPLASH_ACCESS_KEY` | none | Finds a photo for each recipe |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | none | Notifications. Changing them means turning notifications on again on each phone |
 | `PORT` | `2847` | The server's port |
@@ -239,6 +241,35 @@ goes out up to three hours late, and after that stays quiet. A meal that lands o
 time gets no notification, so the Day and recipe screens say what's due tonight, or what was needed last night,
 beside the meal. The planner won't choose such a recipe for today, or for tomorrow once the reminder time has passed.
 If you choose one yourself, you're told, not stopped.
+
+### The tidy-up
+
+Every third day, at night (after the nightly top-up, before 6 AM), Cuisine goes looking for small discrepancies in
+its own records. No notification goes out. It works in two layers.
+
+- **Fixed without asking**, only where the app's own rules leave one right answer: a planned meal for a recipe that's
+  gone (skipped while any recipe file can't be read), planned leftovers that can't be what they
+  say (their dinner is gone or skipped, or they fall past three days; a chosen one becomes plain leftovers), other names
+  repeated on an item or equal to its own name, a temporary stand-in name or a use-by date left on an item that's out,
+  a count and a status that disagree or a count below zero, and records kept past how long they last (meals that came
+  off on days gone by, old "not as planned" and "Any left?" answers, fridge lines past their days).
+- **Asked about**, when there's a key: two items that look like one, a use-by date long past on something marked as in
+  the house, a count of four dozen or more, something marked low or out that was on the list and bought three trips
+  running, a recipe ingredient that matches nothing though a pantry name is close, and planned leftovers of a dinner
+  nobody marked. The code gathers these with evidence; Claude only chooses whether to ask (preferring not to, at most
+  three at a time) and writes a plain question with two or three answers. Each answer is one action from a fixed menu
+  (merge two items, set a status or count, clear a use-by date, add another name, take a planned entry off), checked in
+  code against what that question was about. Claude never changes anything.
+
+Questions wait on Today as small cards under any note about a meal that came off; an answer does what it says and
+the × leaves it. What was asked, answered or left isn't asked again for about three months, and Claude's passes for
+three weeks. Settings shows a "Tidy-up" line with the last run and what it fixed. Without a key only the fixes run.
+To see what a pass would find, fix and ask without changing anything, run it on a copy of your data:
+
+```sh
+D="<your data folder>"; X=$(mktemp -d); mkdir -p $X/data; sqlite3 "$D/cuisine.db" ".backup $X/data/cuisine.db"; cp -R "$D/recipes" $X/data/
+CUISINE_DATA_DIR=$X/data node --env-file-if-exists=.env scripts/tidy-up.ts
+```
 
 ### Dictation
 
@@ -344,6 +375,7 @@ Your data stays on your server except for these:
 | Goes to | What | When |
 | --- | --- | --- |
 | **Anthropic** (if you add a key) | Your kitchen notes with every request; your household description, pantry, plan and recipe titles when planning; dictation transcripts; receipts; cookbook photos and the text of pages you import, with your pantry's names; a recipe you're changing by talking, with your kitchen notes and pantry names; meal plans you import, with the days you're planning, kitchen notes and your recipe titles and tags; a receipt you're changing by talking, with its lines, the list lines it's missing, pantry names, recipe titles and kitchen notes | Each time one of those features runs |
+| **Anthropic** (if you add a key) | The names, counts and dates of pantry items and recipe ingredients the tidy-up finds odd, with the plan entries it asks about and your kitchen notes; at most a few dozen short lines | Every third night, only when there's something to ask about |
 | **Anthropic** (if you add a key) | Each recipe's title, ingredients and steps, with nothing else about your household, to find which ones need something done the night before | Once, when a key is first there; after that only what's left, if a batch failed |
 | **Zippopotam.us** | Your ZIP code | When you save one in Settings → Shopping |
 | **Unsplash** (if you add a key) | Recipe titles, as search terms | When a recipe has no photo |
@@ -357,9 +389,7 @@ Every Claude request carries your kitchen notes, labeled as the family's rules, 
 also carry your pantry with each item's other names, so ingredients can be matched. A page imported from a
 link goes to Anthropic with those, a recipe with no tools and no household description, and the page's text is
 treated as material that can't override them. The page fetcher, which can reach the web, is the one request
-that carries nothing of yours. Recipe imports, night-before steps and the fetcher run on the faster model
-(`CUISINE_FAST_MODEL`). Speech is
-transcribed on your own server: FluidVoice and Parakeet both run locally. The transcript then
+that carries nothing of yours. Speech is transcribed on your own server: FluidVoice and Parakeet both run locally. The transcript then
 goes to Anthropic. Pharmacy and health items on receipts are left out of the records, but the image of the
 receipt itself is still sent to Anthropic to be read.
 

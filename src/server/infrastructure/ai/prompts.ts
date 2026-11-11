@@ -22,6 +22,7 @@ How they eat:
 - Reuse ingredients across the week when it is natural, so less goes to waste.
 - A recipe that lists seasons only goes on dates in those seasons (seasonOfDate gives each date's season). No seasons listed means any time.
 - useSoon lists what's in the house and going off soon, with dates. Favor recipes that use those on or before their dates, as long as the week still feels varied.
+- fridge is bits in the fridge to use up, soonest gone first, with how many days each has been there. It isn't pantry stock. Favor a meal in the next day or two that uses the oldest, where it fits, but never plan around one that doesn't.
 - An alreadyPlanned or history entry with slot "extra" is something else they're making that day, like a birthday cake. Leave what it needs in the house, but it never needs filling, and it doesn't make leftovers.
 
 - avoid lists what they asked you not to suggest again, with their reasons. Never plan those or anything close to them, and steer away from whatever the reason points at.
@@ -139,7 +140,7 @@ export const pantryMealPrompt = (household: Household) => `You put together one 
 - It doesn't have to be a recipe. It can be one of the listed recipes with sides, or a few things that go together, like baked chicken, steamed broccoli and garlic bread from the freezer. Only build on a recipe from the list.
 - It has to be a meal people would actually sit down to, and that everyone in the family would eat, little kids included if there are any. Dinner is the main event: a main and a side or two when the kitchen allows it. Breakfast is small, and lunch is quick.
 - Suit the season and the slot. Don't repeat recentMeals or anything in notThese; a new roll should feel different, not a small change to the last one.
-- leftovers is what's actually in the fridge from recent dinners. Say in how if the meal can use some of it up or serve it alongside. It isn't a repeat of recentMeals, and it doesn't go in uses.
+- fridge is bits in the fridge to use up first, soonest gone first, in the family's words, with how many days they've been there (a recent dinner's leftovers are here too). Work the oldest into the meal where it fits, and say in how what it uses up. It isn't pantry stock, isn't a repeat of recentMeals, and doesn't go in uses.
 - Leave what upcoming meals need, unless there's plenty for both.
 - If date is today, it has to be doable from timeNow: frozen raw meat won't thaw in time unless the method allows for it. For a later day, say in how when to thaw it, allowing about a day in the fridge.
 - Never suggest anything in avoid or close to it, and steer away from whatever their reason points at.

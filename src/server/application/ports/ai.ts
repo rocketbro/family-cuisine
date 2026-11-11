@@ -1,6 +1,7 @@
 import type { AvoidedMeal } from '../../../domain/avoided-meal.ts';
 import type { ISODate } from '../../../domain/dates.ts';
 import type { DraftedMeal, SaidUse } from '../../../domain/drafted-meal.ts';
+import type { FridgeForModel } from '../../../domain/fridge.ts';
 import type { PantryChange } from '../../../domain/pantry-change.ts';
 import type { PantryItem, StockStatus } from '../../../domain/pantry.ts';
 
@@ -13,6 +14,7 @@ import type { MealSlot, RecipeKind } from '../../../domain/recipe.ts';
 import type { RecipeForm } from '../../../domain/recipe-form.ts';
 import type { SaidRevision } from '../../../domain/recipe-revision.ts';
 import type { Season } from '../../../domain/seasons.ts';
+import type { digestOf, SaidQuestion } from '../../../domain/tidy-questions.ts';
 import type { RecipeDraft } from './recipes.ts';
 
 export type AiPort = {
@@ -22,8 +24,8 @@ export type AiPort = {
   recipeFromImages(images: { mediaType: 'image/jpeg'; data: string }[], pantry: PantryRef[], notes: string | null): Promise<RecipeDraft>;
   /** The page is untrusted text: it gets the family's rules and the pantry to match against, but never counts as an instruction. */
   recipeFromPage(page: { url: string; siteName: string; content: string }, pantry: PantryRef[], notes: string | null): Promise<RecipeDraft>;
-  /** Writes a recipe from a description: what someone said or typed, or with `invented` a dish Claude came up with, which takes the main model. */
-  recipeFromDescription(description: string, pantry: PantryRef[], options?: { invented?: boolean }): Promise<RecipeDraft>;
+  /** Writes a recipe from a description: what someone said or typed, or a dish Claude came up with. */
+  recipeFromDescription(description: string, pantry: PantryRef[]): Promise<RecipeDraft>;
   /** Turns something said or typed into pantry and meal changes. */
   interpret(request: InterpretRequest): Promise<Interpretation>;
   /** Reads a receipt, matching what's on it to the pantry. Prices come only from what's printed. */
@@ -40,7 +42,11 @@ export type AiPort = {
   /** Changes a plan under review as someone asked. What it holds and what they said are data. */
   revisePlan(request: PlanRevisionRequest): Promise<SaidPlanRevision>;
   readMealPlan(plan: { text: string | null; images: { mediaType: 'image/jpeg'; data: string }[] }, context: PlanReadContext): Promise<SaidPlanMeal[]>;
+  /** Decides which of the tidy-up's candidates are worth asking the household about, and how. Its answers are checked in code and never applied by it. */
+  tidyUp(digest: TidyDigest): Promise<SaidQuestion[]>;
 };
+
+export type TidyDigest = { today: ISODate; candidates: ReturnType<typeof digestOf> };
 
 export type NightBeforeQuestion = { slug: string; title: string; ingredients: string[]; method: string };
 
@@ -75,6 +81,8 @@ export type PlannerContext = {
   lowOrOut: string[];
   /** In the house and going off soon, with dates: worth cooking before then. */
   useSoon: string[];
+  /** Bits in the fridge to use up, soonest gone first. Not pantry stock. */
+  fridge: FridgeForModel[];
 };
 
 /** Kind "new" is a dish that isn't in the book yet: `note` names it and `idea` says what it is. */
@@ -126,8 +134,8 @@ export type PantryMealContext = {
   /** Recipes that fit this meal and season and are ready to cook from the pantry. */
   recipes: { slug: string; title: string; time: string | null; serves: number; ingredients: string[] }[];
   recentMeals: { date: ISODate; slot: MealSlot; title: string }[];
-  /** Recent dinners they said there's still some of in the fridge. */
-  leftovers: { date: ISODate; title: string }[];
+  /** Bits in the fridge to use up, soonest gone first. Not pantry stock. */
+  fridge: FridgeForModel[];
   /** Already planned ahead: leave them what they need. */
   upcoming: { date: ISODate; title: string; needs: string[] }[];
   /** Earlier rolls they passed on. */

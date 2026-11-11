@@ -5,6 +5,7 @@ import { usePreferences } from '../preferences.ts';
 import { ShowTipsAgain } from '../onboarding/ShowTipsAgain.tsx';
 import { Segmented } from '../ui/Common.tsx';
 import { SettingsMenu } from './settings/SettingsMenu.tsx';
+import { TidyUpLine } from './settings/TidyUpLine.tsx';
 
 export function SettingsScreen() {
   const [prefs, update] = usePreferences();
@@ -31,6 +32,7 @@ export function SettingsScreen() {
 
       <SettingsMenu status={status} />
       <ShowTipsAgain />
+      <TidyUpLine />
 
       {status && (
         <p className="faint small section">

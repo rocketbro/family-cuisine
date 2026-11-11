@@ -11,6 +11,7 @@ import { errorResponse } from './error-response.ts';
 import { requestGuard } from './request-guard.ts';
 import type { TrustPolicy } from './request-trust.ts';
 import { avoidedMealRoutes } from './routes/avoided-meals.ts';
+import { fridgeRoutes } from './routes/fridge.ts';
 import { householdRoutes } from './routes/household.ts';
 import { checkinRoutes } from './routes/checkin.ts';
 import { listenRoutes } from './routes/listen.ts';
@@ -24,6 +25,7 @@ import { recipeRoutes } from './routes/recipes.ts';
 import { receiptRoutes } from './routes/receipts.ts';
 import { recordingRoutes } from './routes/recordings.ts';
 import { shoppingRoutes } from './routes/shopping.ts';
+import { tidyUpRoutes } from './routes/tidy-up.ts';
 import { securityHeaders } from './security-headers.ts';
 import { isMultipartRequest } from './validate.ts';
 
@@ -44,6 +46,7 @@ export function createApp(deps: Deps, opts: AppOptions) {
     .route('/recipe-problems', recipeProblemRoutes(deps))
     .route('/avoided-meals', avoidedMealRoutes(deps))
     .route('/pantry', pantryRoutes(deps))
+    .route('/fridge', fridgeRoutes(deps))
     .route('/listen', listenRoutes(deps))
     .route('/recordings', recordingRoutes(deps))
     .route('/shopping', shoppingRoutes(deps))
@@ -51,6 +54,7 @@ export function createApp(deps: Deps, opts: AppOptions) {
     .route('/never-add', neverAddRoutes(deps))
     .route('/checkin', checkinRoutes(deps))
     .route('/push', pushRoutes(deps))
+    .route('/tidy-up', tidyUpRoutes(deps))
     .route('/household', householdRoutes(deps));
 
   const app = new Hono();

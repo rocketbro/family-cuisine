@@ -31,7 +31,7 @@ const app = createApp(deps, {
 log(`answering to ${hostnames.join(', ')}; access token ${config.accessToken ? 'on' : 'off'}`);
 
 const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host }, info =>
-  log(`Cuisine on http://${info.address}:${info.port} (model ${deps.ai.available() ? `${config.model}, fast ${config.fastModel}` : 'off'}, photos ${deps.images.available() ? 'Unsplash' : 'off'}, push ${deps.notifier.enabled() ? 'on' : 'off'}, Aldi lookup ${deps.storePrices ? 'on' : 'off'}, Walmart lookup ${deps.walmartProducts ? 'on' : 'off'})`),
+  log(`Cuisine on http://${info.address}:${info.port} (model ${deps.ai.available() ? config.model : 'off'}, photos ${deps.images.available() ? 'Unsplash' : 'off'}, push ${deps.notifier.enabled() ? 'on' : 'off'}, Aldi lookup ${deps.storePrices ? 'on' : 'off'}, Walmart lookup ${deps.walmartProducts ? 'on' : 'off'})`),
 );
 
 // Planning can write new recipes, which takes a while, so it never holds up the app coming back.

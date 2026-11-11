@@ -63,3 +63,8 @@
 @media (max-width: 899px) {
   .phone-quiet { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+
+/* The pantry's "In the fridge" block: its add field sits just under its rows, and the block is set off from search. */
+.fridge { margin-bottom: var(--space-xl); }
+.fridge-add { margin-top: var(--space-m); }
+.fridge-add .form-field-help { margin-top: var(--space-xs); }

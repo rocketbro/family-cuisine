@@ -76,3 +76,13 @@ describe('family rules', () => {
     expect(prompt).toContain('not news about the pantry');
   });
 });
+
+describe('the fridge in the prompts', () => {
+  it('tells the planner and the dice to use up what is in it, oldest first, and that it is not stock', () => {
+    for (const prompt of [plannerPrompt(family), pantryMealPrompt(family)]) {
+      expect(prompt).toContain('fridge is bits in the fridge to use up');
+      expect(prompt).toContain('soonest gone first');
+      expect(prompt).toContain("isn't pantry stock");
+    }
+  });
+});

@@ -59,9 +59,10 @@ export const TIPS: Record<TipId, Tip> = {
     ],
   },
   pantry: {
-    version: 1,
+    version: 2,
     title: 'The pantry',
     bullets: [
+      'In the fridge, at the top, holds bits to use up. They clear after 5 days.',
       'Tap an item to set Have, Low or Out. That builds the grocery list.',
       'Keep stocked and Always on hand are under See all, on an open item.',
       'Other names lets a recipe’s “jam” find your raspberry preserves.',

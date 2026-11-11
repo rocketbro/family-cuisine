@@ -24,9 +24,10 @@ import type { ChosenSwap, SwapIdea } from '../domain/save-money.ts';
 import { encodeSubstitutions, type Substitutions } from '../domain/substitutes.ts';
 import type {
   CheckinView, ExtraChoice, HouseholdView, ListenContext, MealChoice, MealQuestions, PantryReport, Proposal, ProposedChange,
-  PlanImportView, ReceiptRevision, ReceiptView, RecipeRevision, SaveMoneyView, ShoppingWeek, Status, StockGoalInput, StockGoalView, TripsView, TripTicks,
+  PlanImportView, ReceiptRevision, ReceiptView, RecipeRevision, SaveMoneyView, ShoppingWeek, Status, StockGoalInput, StockGoalView, TidyUpView, TripsView, TripTicks,
 } from '../shared/api-types.ts';
 import type { AvoidedMeal } from '../domain/avoided-meal.ts';
+import type { FridgeLine } from '../domain/fridge.ts';
 import type { MealOffView, PlanEntryView, ProblemCode, RecipeCard, RecipeDetail, RecipeFileNotice } from '../shared/views.ts';
 
 export type RecipeChanges = {
@@ -94,6 +95,9 @@ export const api = {
   fillAfterPlanImport: () => request<{ added: number }>('/plan-import/fill', { method: 'POST' }),
   mealsOff: (date: ISODate) => request<MealOffView[]>(`/plan/${date}/meals-off`),
   dismissMealOff: (date: ISODate, slot: MealSlot) => request(`/plan/${date}/${slot}/dismiss-meal-off`, { method: 'POST' }),
+  tidyUp: () => request<TidyUpView>('/tidy-up'),
+  answerTidyQuestion: (id: string, answer: number) => request('/tidy-up/answer', json('POST', { id, answer })),
+  leaveTidyQuestion: (id: string) => request('/tidy-up/leave', json('POST', { id })),
   putMealBack: (date: ISODate, slot: MealSlot) => request(`/plan/${date}/${slot}/put-back`, { method: 'POST' }),
   planAhead: () => request<{ added: number }>('/plan/fill', { method: 'POST' }),
   planTrip: (date: ISODate) => request<{ added: number }>('/plan/fill-trip', json('POST', { date })),
@@ -108,6 +112,9 @@ export const api = {
   reviseRecipe: (slug: string, said: string, form: RecipeForm) => request<RecipeRevision>(`/recipes/${slug}/revise`, json('POST', { said, form })),
   keepPick: (slug: string) => request(`/recipes/${slug}/keep`, { method: 'POST' }),
   importWords: (words: string) => request<{ slug: string }>('/recipes/import/words', json('POST', { words })),
+  fridge: () => request<FridgeLine[]>('/fridge'),
+  addToFridge: (text: string) => request<FridgeLine[]>('/fridge', json('POST', { text })),
+  usedUpFromFridge: (id: string) => request(`/fridge/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   avoidedMeals: () => request<AvoidedMeal[]>('/avoided-meals'),
   avoidMeal: (title: string, reason: string, slug: string | null) => request('/avoided-meals', json('POST', { title, reason: reason.trim() || null, slug })),
   forgetAvoidedMeal: (id: number) => request(`/avoided-meals/${id}`, { method: 'DELETE' }),

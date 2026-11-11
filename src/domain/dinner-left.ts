@@ -3,6 +3,9 @@ import { cookedSlug, type PlanEntry } from './plan.ts';
 
 export type DinnerLeft = 'some' | 'none';
 
+/** Answers to "Any left?" are kept this long; by then the leftovers are long gone. */
+export const KEEP_ANSWERS_DAYS = 14;
+
 /** The question is about a dinner someone ate, and leftovers of leftovers aren't worth asking about. */
 export function asksAnyLeft(meals: readonly PlanEntry[]): boolean {
   return meals.some(m => m.slot === 'dinner' && (m.outcome === 'made' || m.outcome === 'swapped') && m.kind !== 'leftovers');

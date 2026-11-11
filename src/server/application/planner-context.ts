@@ -8,6 +8,7 @@ import { seasonOf } from '../../domain/seasons.ts';
 import { beforeGroceries } from '../../domain/shop-schedule.ts';
 import { goingOffSoon } from '../../domain/use-by.ts';
 import type { Deps } from './deps.ts';
+import { fridgeForClaude } from './fridge.ts';
 import { batchFor } from './household-profile.ts';
 import { nightBeforeTooLate } from './night-before-check.ts';
 import { pantryCountingLastTrip } from './pantry-with-trip.ts';
@@ -40,5 +41,6 @@ export function plannerContext(
     alreadyPlanned: existing.map(describe),
     lowOrOut: pantry.filter(p => !p.staple && !p.occasional && p.status !== 'have').map(p => `${p.name} (${p.status})`),
     useSoon: goingOffSoon(pantry, today, PLANNER_USE_SOON_DAYS).filter(p => p.useBy! >= today).map(useSoonText),
+    fridge: fridgeForClaude(deps, today),
   };
 }

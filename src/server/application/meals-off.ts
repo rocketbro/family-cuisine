@@ -60,3 +60,13 @@ export function putMealBack(deps: Deps, date: ISODate, slot: MealSlot, today: IS
 export function dismissMealOff(deps: Deps, date: ISODate, slot: MealSlot): void {
   save(deps, stored(deps).filter(o => o.date !== date || o.slot !== slot));
 }
+
+/** The days of the notes kept, whether or not they still stand. */
+export function mealsOffDates(deps: Deps): ISODate[] {
+  return stored(deps).map(off => off.date);
+}
+
+/** Notes for days that have gone are only there because nothing came off since. */
+export function forgetOldMealsOff(deps: Deps, today: ISODate): void {
+  save(deps, remembered(stored(deps), [], today));
+}

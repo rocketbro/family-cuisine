@@ -14,7 +14,7 @@ async function requestFrom(run: (ai: AiPort) => Promise<unknown>): Promise<strin
     return new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'caught' } }), { status: 400, headers: { 'content-type': 'application/json' } });
   });
   vi.stubGlobal('fetch', sent);
-  const ai = claudeAi({ apiKey: 'test-key', model: 'test-model', fastModel: 'test-fast', kitchenNotes: () => NOTES, household: () => ({ family: FAMILY, portions: 2, dinnerTime: '6:30 PM', members: [] }) });
+  const ai = claudeAi({ apiKey: 'test-key', model: 'test-model', kitchenNotes: () => NOTES, household: () => ({ family: FAMILY, portions: 2, dinnerTime: '6:30 PM', members: [] }) });
   await run(ai).catch(() => undefined);
   expect(sent).toHaveBeenCalledOnce();
   return String(sent.mock.calls[0][1]?.body);
@@ -42,7 +42,7 @@ describe('changing a recipe by talking', () => {
       id: 'm', type: 'message', role: 'assistant', model: 'test-model', stop_reason: 'end_turn', stop_sequence: null,
       content: [{ type: 'text', text: JSON.stringify(answer) }], usage: { input_tokens: 1, output_tokens: 1 },
     }), { status: 200, headers: { 'content-type': 'application/json' } })));
-    const ai = claudeAi({ apiKey: 'test-key', model: 'test-model', fastModel: 'test-fast', kitchenNotes: () => null, household: () => ({ family: '', portions: 2, dinnerTime: '6:30 PM', members: [] }) });
+    const ai = claudeAi({ apiKey: 'test-key', model: 'test-model', kitchenNotes: () => null, household: () => ({ family: '', portions: 2, dinnerTime: '6:30 PM', members: [] }) });
     await expect(ai.reviseRecipe(request)).resolves.toEqual(answer);
   });
 });
@@ -53,7 +53,7 @@ function answering(answer: unknown) {
     id: 'm', type: 'message', role: 'assistant', model: 'test-model', stop_reason: 'end_turn', stop_sequence: null,
     content: [{ type: 'text', text: JSON.stringify(answer) }], usage: { input_tokens: 1, output_tokens: 1 },
   }), { status: 200, headers: { 'content-type': 'application/json' } })));
-  return claudeAi({ apiKey: 'test-key', model: 'test-model', fastModel: 'test-fast', kitchenNotes: () => NOTES, household: () => ({ family: FAMILY, portions: 2, dinnerTime: '6:30 PM', members: [] }) });
+  return claudeAi({ apiKey: 'test-key', model: 'test-model', kitchenNotes: () => NOTES, household: () => ({ family: FAMILY, portions: 2, dinnerTime: '6:30 PM', members: [] }) });
 }
 
 describe('night-before steps', () => {
@@ -162,45 +162,37 @@ describe('which model a call uses', () => {
     content: stop_reason === 'refusal' ? [] : [{ type: 'text', text: JSON.stringify(body) }], usage: { input_tokens: 1, output_tokens: 1 },
   }), { status: 200, headers: { 'content-type': 'application/json' } });
   const sentTo = (sent: ReturnType<typeof vi.fn>) => sent.mock.calls.map(call => JSON.parse(String((call[1] as RequestInit).body)));
-  const ai = () => claudeAi({ apiKey: 'k', model: 'test-model', fastModel: 'test-fast', kitchenNotes: () => null, household: () => ({ family: '', portions: 2, dinnerTime: '6:30 PM', members: [] }) });
+  const ai = () => claudeAi({ apiKey: 'k', model: 'test-model', kitchenNotes: () => null, household: () => ({ family: '', portions: 2, dinnerTime: '6:30 PM', members: [] }) });
   const page = { url: 'https://example.com/soup', siteName: 'Example', content: 'Soup.' };
 
-  it('sends an import to the fast model without the fallback beta, and reports which pantry item each ingredient is', async () => {
+  it('sends an import to the main model with the fallback, and reports which pantry item each ingredient is', async () => {
     const sent = vi.fn(async () => reply('end_turn', said));
     vi.stubGlobal('fetch', sent);
     const draft = await ai().recipeFromPage(page, [], null);
     const [request] = sentTo(sent);
-    expect(request.model).toBe('test-fast');
-    expect(request.fallbacks).toBeUndefined();
-    expect(JSON.stringify(request)).not.toContain('server-side-fallback');
+    expect(request.model).toBe('test-model');
+    expect(request.fallbacks).toBeDefined();
     expect(draft.pantryMatches).toEqual([{ written: 'sourdough starter', pantryName: 'sourdough discard' }]);
     expect(draft.ingredients.map(i => i.item)).toEqual(['sourdough starter', 'flour']);
   });
 
-  it('retries a refusal from the fast model once on the main model, with the fallback', async () => {
-    const sent = vi.fn()
-      .mockImplementationOnce(async () => reply('refusal', null))
-      .mockImplementationOnce(async () => reply('end_turn', said));
-    vi.stubGlobal('fetch', sent);
-    await ai().recipeFromPage(page, [], null);
-    const [first, second] = sentTo(sent);
-    expect([first.model, second.model]).toEqual(['test-fast', 'test-model']);
-    expect(second.fallbacks).toBeDefined();
-  });
-
-  it('gives up after that one retry', async () => {
-    const sent = vi.fn(async () => reply('refusal', null));
-    vi.stubGlobal('fetch', sent);
+  it('reports a refusal plainly', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => reply('refusal', null)));
     await expect(ai().recipeFromPage(page, [], null)).rejects.toThrow('declined');
-    expect(sent).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('what is in the fridge', () => {
+  const fridge = [{ text: 'fridge-bits-from-the-test', since: 'Monday 2026-11-02', daysThere: 2 }];
+
+  it('goes to the planner', async () => {
+    const body = await requestFrom(ai => ai.planMeals({ dates: ['2026-11-04'], fridge } as never));
+    expect(body).toContain('fridge-bits-from-the-test');
+    expect(body).toContain('daysThere');
   });
 
-  it('keeps everything else, and a dish Claude invents, on the main model with the fallback', async () => {
-    const sent = vi.fn(async () => reply('end_turn', said));
-    vi.stubGlobal('fetch', sent);
-    await ai().recipeFromDescription('an idea', [], { invented: true });
-    const [request] = sentTo(sent);
-    expect(request.model).toBe('test-model');
-    expect(request.fallbacks).toBeDefined();
+  it('goes to the dice', async () => {
+    const body = await requestFrom(ai => ai.draftMeal({ today: '2026-11-04', fridge } as never));
+    expect(body).toContain('fridge-bits-from-the-test');
   });
 });

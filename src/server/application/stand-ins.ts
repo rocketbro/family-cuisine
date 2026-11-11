@@ -50,3 +50,8 @@ export function forgetStandIns(deps: Deps, itemId: number): void {
   const entries = forNow(deps);
   if (entries.some(e => e.itemId === itemId)) saveForNow(deps, entries.filter(e => e.itemId !== itemId));
 }
+
+/** The names standing in just this time, for the tidy-up to compare with what is out. */
+export function standInsForNow(deps: Deps): ForNow[] {
+  return forNow(deps);
+}

@@ -31,10 +31,11 @@ export function deferred<T>() {
 }
 
 export type Fakes = Deps & {
-  calls: { planMeals: number; recipeFromDescription: number; lookups: number; sends: number; nightBeforeSteps: number };
+  calls: { planMeals: number; recipeFromDescription: number; lookups: number; sends: number; nightBeforeSteps: number; tidyUp: number };
   planMeals: Deps['ai']['planMeals'];
   writeRecipe: Deps['ai']['recipeFromDescription'];
   nightBeforeSteps: Deps['ai']['nightBeforeSteps'];
+  tidyUp: Deps['ai']['tidyUp'];
   lookup: (names: string[]) => Promise<Map<string, StorePriceQuote>>;
   send: () => Promise<number>;
   entries: Map<string, PlanEntry>;
@@ -58,10 +59,11 @@ export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?:
   const jobKey = (job: string, runKey: string) => `${job}/${runKey}`;
 
   const fakes: Fakes = {
-    calls: { planMeals: 0, recipeFromDescription: 0, lookups: 0, sends: 0, nightBeforeSteps: 0 },
+    calls: { planMeals: 0, recipeFromDescription: 0, lookups: 0, sends: 0, nightBeforeSteps: 0, tidyUp: 0 },
     planMeals: () => Promise.resolve([]),
     writeRecipe: description => Promise.resolve(draft(description.split(',')[0])),
     nightBeforeSteps: () => Promise.resolve([]),
+    tidyUp: () => Promise.resolve([]),
     lookup: () => Promise.resolve(new Map()),
     send: () => Promise.resolve(1),
     entries, priceTable, logged,
@@ -70,6 +72,7 @@ export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?:
     recipes: {
       ...notFaked('recipes') as Deps['recipes'],
       list: () => [...recipes.values()],
+      problems: () => [],
       get: slug => recipes.get(slug) ?? null,
       save(saved) {
         let slug = slugify(saved.title);
@@ -88,6 +91,7 @@ export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?:
     pantry: {
       ...notFaked('pantry') as Deps['pantry'],
       list: () => pantry,
+      remove(id) { pantry.splice(pantry.findIndex(p => p.id === id), 1); },
       get: id => pantry.find(p => p.id === id) ?? null,
       findByName: name => pantry.find(p => p.name === name) ?? null,
       create(input) {
@@ -153,6 +157,7 @@ export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?:
     receipts: {
       ...notFaked('receipts') as Deps['receipts'],
       list: () => [],
+      tripDates: () => [...trips.keys()],
       tripList: shopDate => (trips.get(shopDate) ?? null) as ReturnType<Deps['receipts']['tripList']>,
       saveTripList: (shopDate, lines) => void trips.set(shopDate, lines),
     },
@@ -182,6 +187,10 @@ export function fakeDeps(opts: { recipes?: Recipe[]; pantry?: PantryItem[]; ai?:
       nightBeforeSteps(recipes) {
         fakes.calls.nightBeforeSteps += 1;
         return fakes.nightBeforeSteps(recipes);
+      },
+      tidyUp(digest) {
+        fakes.calls.tidyUp += 1;
+        return fakes.tidyUp(digest);
       },
     },
     images: { available: () => false, find: () => Promise.resolve(null) },

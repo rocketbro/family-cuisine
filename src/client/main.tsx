@@ -8,6 +8,7 @@ import './styles/components.css';
 import './styles/checkbox.css';
 import './styles/pantry-editor.css';
 import './styles/settings.css';
+import './styles/tidy-up.css';
 import './styles/layout.css';
 import './styles/sheet.css';
 import './styles/dictation.css';

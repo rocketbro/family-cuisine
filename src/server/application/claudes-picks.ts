@@ -43,7 +43,7 @@ async function writeNew(deps: Deps, { title, idea, slot, fromHouse, onlyIfReady 
     idea,
     fromHouse ? `Nothing gets bought: use only these, and no more than the amounts shown. ${inHouse.join(', ')}.` : null,
   ].filter(Boolean).join('\n');
-  const draft = await deps.ai.recipeFromDescription(description, pantryRefs(deps), { invented: true });
+  const draft = await deps.ai.recipeFromDescription(description, pantryRefs(deps));
   if (onlyIfReady && recipeAvailability(draft.ingredients, pantry, batchFor(deps, draft.serves)).level !== 'ready') {
     deps.log(`left out ${title}: the written recipe needs more than the house has`);
     return null;

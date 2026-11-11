@@ -10,6 +10,7 @@ import { Clock, Mic } from 'lucide-react';
 import { useDictation } from '../dictation/useDictation.ts';
 import { useCollapsed } from '../hooks/useCollapsed.ts';
 import { useToday } from '../hooks/useToday.ts';
+import { FridgeList } from './pantry/FridgeList.tsx';
 import { CategorySection } from './pantry/CategorySection.tsx';
 import { ItemDetailsSheet } from './pantry/ItemDetailsSheet.tsx';
 import { keepOpenRow } from './pantry/open-row.ts';
@@ -64,6 +65,8 @@ export function PantryScreen() {
           <Mic size={23} />
         </button>
       </div>
+
+      <FridgeList />
 
       <form className="row" style={{ marginTop: 18 }} onSubmit={e => { e.preventDefault(); void add(); }}>
         <input className="field" placeholder="Find or add an item" value={query} onChange={e => setQuery(e.target.value)} />

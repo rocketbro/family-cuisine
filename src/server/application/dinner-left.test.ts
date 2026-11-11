@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { blankEntry, type PlanEntry } from '../../domain/plan.ts';
 import { recipe } from '../../domain/test-fixtures.ts';
 import { checkinView, recordMeal } from './checkin.ts';
-import { leftoversInTheFridge, sayAnyLeft } from './dinner-left.ts';
+import { sayAnyLeft } from './dinner-left.ts';
+import { fridgeLines } from './fridge.ts';
 import { planView } from './plan-view.ts';
 import { plannedRecipe, TODAY, transactionalFakes } from './test-support/transactional-fakes.ts';
 
@@ -62,15 +63,39 @@ describe('saying whether any dinner is left', () => {
   });
 });
 
-describe('what the dice hear', () => {
-  it('hears only a yes, on later days within reach', () => {
+describe('the fridge', () => {
+  it('gets the dish on a yes, dated that day, and loses it on a no', () => {
     const f = dinnerEaten();
-    const title = (slug: string) => f.deps.recipes.get(slug)?.title ?? null;
-    expect(leftoversInTheFridge(f.deps, TOMORROW, title)).toEqual([]);
+    expect(fridgeLines(f.deps, TOMORROW)).toEqual([]);
     sayAnyLeft(f.deps, TODAY, 'some', TODAY);
-    expect(leftoversInTheFridge(f.deps, TOMORROW, title)).toEqual([{ date: TODAY, title: f.deps.recipes.get('tacos')!.title }]);
-    expect(leftoversInTheFridge(f.deps, TODAY, title)).toEqual([]);
-    expect(leftoversInTheFridge(f.deps, '2026-11-10', title)).toEqual([]);
+    expect(fridgeLines(f.deps, TOMORROW)).toMatchObject([{ text: f.deps.recipes.get('tacos')!.title, since: TODAY, dinner: TODAY }]);
+    sayAnyLeft(f.deps, TODAY, 'some', TODAY);
+    expect(fridgeLines(f.deps, TOMORROW)).toHaveLength(1);
+    sayAnyLeft(f.deps, TODAY, 'none', TODAY);
+    expect(fridgeLines(f.deps, TOMORROW)).toEqual([]);
+  });
+
+  it('is named by a dinner that was only a name', () => {
+    const f = transactionalFakes([]);
+    f.deps.plan.upsert({ ...blankEntry(TODAY, 'dinner'), kind: 'note', note: 'Chili from the freezer' });
+    recordMeal(f.deps, made);
+    sayAnyLeft(f.deps, TODAY, 'some', TODAY);
+    expect(fridgeLines(f.deps, TODAY).map(l => l.text)).toEqual(['Chili from the freezer']);
+  });
+
+  it('is emptied of that dinner when it is eaten as its planned leftovers', () => {
+    const f = dinnerEaten();
+    sayAnyLeft(f.deps, TODAY, 'some', TODAY);
+    f.deps.plan.upsert(lunch(TOMORROW));
+    recordMeal(f.deps, { date: TOMORROW, slot: 'lunch', outcome: 'made', recipeSlug: null, note: null });
+    expect(fridgeLines(f.deps, TOMORROW)).toEqual([]);
+  });
+
+  it('leaves the pantry alone', () => {
+    const f = dinnerEaten();
+    const before = JSON.stringify(f.deps.pantry.list());
+    sayAnyLeft(f.deps, TODAY, 'some', TODAY);
+    expect(JSON.stringify(f.deps.pantry.list())).toBe(before);
   });
 });
 

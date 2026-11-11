@@ -2,6 +2,7 @@
 // "No" is kept here: it opens that day's rows, and whatever isn't marked stays unrecorded, so nothing comes off for it.
 import { CARRY_OVER_DAYS } from '../../domain/checkin.ts';
 import { daysToCatchUp } from '../../domain/checkin-catch-up.ts';
+import { catchUpCutoff } from '../../domain/tidy-fix-records.ts';
 import { addDays, type ISODate } from '../../domain/dates.ts';
 import type { CheckinView } from '../../shared/api-types.ts';
 import type { Deps } from './deps.ts';
@@ -24,6 +25,16 @@ export function catchUpDays(deps: Deps, date: ISODate, today: ISODate): CheckinV
 
 /** Only days still in reach need remembering. */
 export function sayNotAsPlanned(deps: Deps, day: ISODate, today: ISODate): void {
-  const kept = daysSaidNo(deps).filter(d => d !== day && d >= addDays(today, -CARRY_OVER_DAYS * 2));
+  const kept = daysSaidNo(deps).filter(d => d !== day && d >= catchUpCutoff(today));
   deps.household.saveSetting(SAID_NO, JSON.stringify([...kept, day]));
+}
+
+export function catchUpNoDays(deps: Deps): ISODate[] {
+  return daysSaidNo(deps);
+}
+
+/** Answers for days past reach can't matter any more. */
+export function forgetOldCatchUp(deps: Deps, today: ISODate): void {
+  const kept = daysSaidNo(deps).filter(d => d >= catchUpCutoff(today));
+  deps.household.saveSetting(SAID_NO, kept.length ? JSON.stringify(kept) : null);
 }

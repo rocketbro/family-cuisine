@@ -7,7 +7,7 @@ import { findPantryItem, type PantryItem } from '../../domain/pantry.ts';
 import { isExtraSlot } from '../../domain/plan-slot.ts';
 import { cookedSlug, type PlanEntry } from '../../domain/plan.ts';
 import { batchFor } from './household-profile.ts';
-import { leftoversInTheFridge } from './dinner-left.ts';
+import { fridgeForClaude } from './fridge.ts';
 import { nightBeforeCheck } from './night-before-check.ts';
 import { portionsText, useSoonText } from '../../domain/portions.ts';
 import type { MealSlot, Recipe } from '../../domain/recipe.ts';
@@ -50,7 +50,7 @@ function mealContext(
     recipes: ready.map(r => ({ slug: r.slug, title: r.title, time: r.time, serves: r.serves, ingredients: r.ingredients.filter(i => !i.optional).map(i => i.item) })),
     // A birthday cake isn't a dinner to avoid repeating; what an upcoming extra needs still gets left in the house.
     recentMeals: deps.plan.range(addDays(date, -LOOK_BACK_DAYS), addDays(date, -1)).flatMap(e => (e.outcome === 'skipped' || isExtraSlot(e.slot) ? [] : [{ date: e.date, slot: e.slot, title: titleOf(e) }])),
-    leftovers: leftoversInTheFridge(deps, date, slug => all.get(slug)?.title ?? null),
+    fridge: fridgeForClaude(deps, today),
     upcoming: upcoming.map(e => ({ date: e.date, title: titleOf(e), needs: all.get(cookedSlug(e) ?? '')?.ingredients.filter(i => !i.optional).map(i => i.item) ?? [] })),
     notThese,
     avoid: deps.avoided.list().map(({ title, reason }) => ({ title, reason })),

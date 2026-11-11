@@ -56,11 +56,11 @@ export function buildDeps(config: Config, log: (m: string) => void = console.log
     recordings,
     zips: zippopotam(),
     subscriptions,
-    ai: claudeAi({ apiKey: config.anthropicApiKey, model: config.model, fastModel: config.fastModel, kitchenNotes: () => kitchenNotes({ household }), household: () => householdProfile({ household, settings }) }),
+    ai: claudeAi({ apiKey: config.anthropicApiKey, model: config.model, kitchenNotes: () => kitchenNotes({ household }), household: () => householdProfile({ household, settings }) }),
     images: unsplashImages(config.unsplashAccessKey),
     photos: filePhotoStore(config.imagesDir),
     pages: webPageFetcher(),
-    claudePages: claudePageFetcher({ apiKey: config.anthropicApiKey, model: config.fastModel }),
+    claudePages: claudePageFetcher({ apiKey: config.anthropicApiKey, model: config.model }),
     transcriber: ladderTranscriber({
       audioFile: recordings.audioFile,
       ffmpeg: config.ffmpeg,

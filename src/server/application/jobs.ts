@@ -21,6 +21,8 @@ import { markMealsOffTold, untoldMealsOff } from './meals-off.ts';
 import { backfillNightBefore } from './night-before-backfill.ts';
 import { nightBeforeTime } from './night-before-time.ts';
 import { planAhead } from './planning.ts';
+import { tidyPeriod, tidyUpWindowOpen } from '../../domain/tidy-schedule.ts';
+import { runTidyUp } from './tidy-up.ts';
 import { keepTripList } from './receipts.ts';
 import { shoppingWeek } from './shopping.ts';
 
@@ -36,6 +38,7 @@ const LEASE_MS = 15 * 60_000;
 const RETRY_MS = 5 * 60_000;
 const REMINDER_JOB = 'night-before';
 const MEALS_OFF_JOB = 'meals-off';
+const TIDY_UP_JOB = 'tidy-up';
 const BACKFILL_JOB = 'night-before-backfill';
 const BACKFILL_RUN = 'once';
 /** A one-time job with nowhere to be, which spends tokens each go: a failure waits longer. */
@@ -89,6 +92,9 @@ export async function runDueJobs(deps: Deps, schedule: Schedule, now: Date): Pro
   }
 
   if (reminderWindowOpen(minutes, minutesOf(nightBeforeTime(deps)))) await nightBeforeReminder(deps, today, now);
+
+  // Every third day, at night after the top-up. No notification: what it asks waits on Today.
+  if (tidyUpWindowOpen(now.getHours())) await retried(deps, TIDY_UP_JOB, tidyPeriod(today), now, () => runTidyUp(deps, today, tidyPeriod(today)));
 
   // Last, since it can take a few minutes on the model. With no key it isn't done, so a key added later still gets it.
   if (deps.ai.available()) await retried(deps, BACKFILL_JOB, BACKFILL_RUN, now, () => backfillNightBefore(deps), BACKFILL_RETRY_MS);

@@ -12,6 +12,7 @@ import type { PantryMatch } from '../../../domain/pantry-other-names.ts';
 import type { RecipeDraft } from '../../application/ports/recipes.ts';
 import { asker, type Content } from './ask.ts';
 import { pantryList } from './pantry-list.ts';
+import { TIDY_UP_PROMPT, TidyUpSchema } from './tidy-up.ts';
 import { PAGE_IMPORT_PROMPT, pageImportText } from './page-import.ts';
 import {
   listenPrompt, MEAL_PLAN_PROMPT, REVISE_MEAL_PLAN_PROMPT, NIGHT_BEFORE_PROMPT, pantryMealPrompt, plannerPrompt, RECEIPT_PROMPT, RECIPE_PROMPT,
@@ -22,11 +23,11 @@ import {
   RecipeDraftSchema, RecipeRevisionSchema,
 } from './schemas.ts';
 
-type Options = { apiKey: string | null; model: string; fastModel: string; kitchenNotes: () => string | null; household: () => HouseholdProfile };
+type Options = { apiKey: string | null; model: string; kitchenNotes: () => string | null; household: () => HouseholdProfile };
 
-export function claudeAi({ apiKey, model, fastModel, kitchenNotes, household }: Options): AiPort {
+export function claudeAi({ apiKey, model, kitchenNotes, household }: Options): AiPort {
   const client = apiKey ? new Anthropic({ apiKey }) : null;
-  const ask = asker({ client, model, fastModel, kitchenNotes });
+  const ask = asker({ client, model, kitchenNotes });
 
   const ourWay = (notes: string | null) => notes?.trim() ? `\n\nHow we make it (from the family; this wins over the source):\n"""${notes.trim()}"""` : '';
 
@@ -43,16 +44,16 @@ export function claudeAi({ apiKey, model, fastModel, kitchenNotes, household }: 
         ...images.map(image => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType, data: image.data } })),
         { type: 'text', text: `These are photos of one recipe, in page order. Transcribe it faithfully.\n\n${pantryList(pantry)}${ourWay(notes)}` },
       ];
-      return toDraft(await ask({ system: RECIPE_PROMPT, rules: 'write', fast: true }, content, RecipeDraftSchema));
+      return toDraft(await ask({ system: RECIPE_PROMPT, rules: 'write' }, content, RecipeDraftSchema));
     },
 
     async recipeFromPage(page, pantry, notes) {
-      return toDraft(await ask({ system: PAGE_IMPORT_PROMPT, rules: 'write', fast: true }, [{ type: 'text', text: pageImportText(page, pantry, notes) }], RecipeDraftSchema));
+      return toDraft(await ask({ system: PAGE_IMPORT_PROMPT, rules: 'write' }, [{ type: 'text', text: pageImportText(page, pantry, notes) }], RecipeDraftSchema));
     },
 
-    async recipeFromDescription(description, pantry, { invented = false } = {}) {
+    async recipeFromDescription(description, pantry) {
       const text = `${pantryList(pantry)}\n\nWrite up this recipe:\n"""${description.trim()}"""`;
-      return toDraft(await ask({ system: writeRecipePrompt(household()), rules: 'write', fast: !invented }, [{ type: 'text', text }], RecipeDraftSchema));
+      return toDraft(await ask({ system: writeRecipePrompt(household()), rules: 'write' }, [{ type: 'text', text }], RecipeDraftSchema));
     },
 
     async readReceipt(files, context) {
@@ -96,7 +97,13 @@ export function claudeAi({ apiKey, model, fastModel, kitchenNotes, household }: 
 
     // The recipes' text may have come from web pages, so it's fenced off as material; the family's rules still apply.
     async nightBeforeSteps(recipes) {
-      return (await ask({ system: NIGHT_BEFORE_PROMPT, rules: 'write', fast: true }, [{ type: 'text', text: JSON.stringify(recipes) }], NightBeforeSchema)).steps;
+      return (await ask({ system: NIGHT_BEFORE_PROMPT, rules: 'write' }, [{ type: 'text', text: JSON.stringify(recipes) }], NightBeforeSchema)).steps;
+    },
+
+    // The names and evidence are the household's own data; 'read' so the family's rules only help with what they call things.
+    async tidyUp({ today, candidates }) {
+      const text = `Today is ${today}.\n\nCandidates:\n${JSON.stringify(candidates, null, 1)}`;
+      return (await ask({ system: TIDY_UP_PROMPT, rules: 'read' }, [{ type: 'text', text }], TidyUpSchema)).questions;
     },
 
     async reviseRecipe({ said, form, pantry }) {

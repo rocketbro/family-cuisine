@@ -1,0 +1,5 @@
+/* The tidy-up's questions on Today: quiet cards like the meals-off note, with the answers as small buttons that wrap. */
+.tidy-answers { display: flex; flex-wrap: wrap; gap: var(--space-s); }
+.tidy-answers .button { height: auto; min-height: 34px; padding-block: 6px; text-align: left; overflow-wrap: anywhere; }
+.tidy-last summary { cursor: pointer; }
+.tidy-last ul { margin: var(--space-s) 0 0; padding-left: 1.2em; }

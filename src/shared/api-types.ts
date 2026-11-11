@@ -3,6 +3,7 @@
 import type { SwapIdea } from '../domain/save-money.ts';
 import type { PackSize } from '../domain/pack-size.ts';
 import type { StockGoal, StockLine, StockStanding } from '../domain/stock-up.ts';
+import type { TidyRun } from '../domain/tidy-log.ts';
 import type { CarriedMeal, CheckinQuestions } from '../domain/checkin.ts';
 import type { ISODate } from '../domain/dates.ts';
 import type { DinnerLeft } from '../domain/dinner-left.ts';
@@ -166,3 +167,8 @@ export type SaveMoneyView = { ideas: SwapIdea[] };
 export type StockGoalInput = Pick<StockGoal, 'amount' | 'unit' | 'storage'> & { pantryItemId: number };
 
 export type StockGoalView = { pantryItemId: number; name: string; goal: StockGoal; standing: StockStanding; pack: PackSize | null; linked: boolean };
+
+/** A question the tidy-up left on Today: what it asks, and a label for each answer. A card is known by what it is about. */
+export type TidyCardView = { id: string; question: string; answers: string[] };
+
+export type TidyUpView = { cards: TidyCardView[]; last: TidyRun | null };

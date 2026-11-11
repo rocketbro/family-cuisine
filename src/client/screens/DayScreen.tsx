@@ -12,6 +12,7 @@ import { Loading, Problem } from '../ui/Common.tsx';
 import { ExtrasSection } from '../ui/ExtrasSection.tsx';
 import { MealCard } from '../ui/MealCard.tsx';
 import { MealsOffNote } from '../ui/MealsOffNote.tsx';
+import { TidyUpCards } from '../ui/TidyUpCards.tsx';
 import { TomorrowNote } from '../ui/NightBeforeNote.tsx';
 
 export function DayScreen() {
@@ -58,6 +59,7 @@ export function DayScreen() {
       {isToday && minutes >= minutesOf(household.schedule.nightBeforeTime) && <TomorrowNote entries={tomorrow} />}
 
       <MealsOffNote date={date} today={today} />
+      {isToday && <TidyUpCards />}
 
       {meals.length === 0 ? (
         <div className="section stack">

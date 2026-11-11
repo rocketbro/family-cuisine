@@ -43,7 +43,6 @@ export const config = {
   anthropicApiKey: env.ANTHROPIC_API_KEY || null,
   model: env.CUISINE_MODEL || 'claude-sonnet-5-5',
   /** Reading and transcribing work: recipe imports, night-before steps and the page fetcher. */
-  fastModel: env.CUISINE_FAST_MODEL || 'claude-haiku-5-5',
   unsplashAccessKey: env.UNSPLASH_ACCESS_KEY || null,
 
   vapidPublicKey: env.VAPID_PUBLIC_KEY || null,
